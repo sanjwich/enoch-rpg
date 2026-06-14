@@ -301,7 +301,8 @@ function currentMusicKey(){
   if(view==='title')return 'title';
   if(view==='battle')return (B&&B.def&&B.def.boss)?'boss':'battle';
   if(P.map==='earth')return era()?'earth_corrupt':'earth';
-  return MUSIC_THEMES[P.map]?P.map:'earth';
+  const mk=(P.map&&P.map.startsWith('sheol'))?'sheol':P.map; // deeper Sheol maps share the Sheol theme
+  return MUSIC_THEMES[mk]?mk:'earth';
 }
 function setMusicTheme(key){
   const a=ac(); if(!a||musicMuted||musicTheme===key)return;
@@ -1362,7 +1363,7 @@ function tileDetail(t,wx,wy,time){
     // 2) rubble shed from walls onto the floor at their feet
     if('R#MX'.includes(up)&&hash(wx*7,wy*11)>.5){
       const c=CURMAP==='dudael'?['#a8804a','#8a6634']
-            :CURMAP==='sheol'?['#322a44','#241e34']:['#6a6675','#4c4854'];
+            :CURMAP.startsWith('sheol')?['#322a44','#241e34']:['#6a6675','#4c4854'];
       ctx.fillStyle=c[0];
       ctx.fillRect(3+hash(wx,wy)*8,2+hash(wx*3,wy)*3,4,3);
       ctx.fillRect(14+hash(wx*5,wy)*8,3,3,2);
@@ -1373,7 +1374,7 @@ function tileDetail(t,wx,wy,time){
     }
     // 3) moss creeping from the wall base onto the floor
     if('R#'.includes(up)&&CURMAP!=='dudael'&&hash(wx*13,wy*3)>.62){
-      ctx.fillStyle=CURMAP==='sheol'?'rgba(42,58,72,0.85)':'rgba(92,108,70,0.85)';
+      ctx.fillStyle=CURMAP.startsWith('sheol')?'rgba(42,58,72,0.85)':'rgba(92,108,70,0.85)';
       ctx.fillRect(6+hash(wx,wy*11)*14,0,5,2);
       ctx.fillRect(9+hash(wx*9,wy)*12,2,3,2);
     }
@@ -1633,7 +1634,7 @@ function drawTile(t,sx,sy,wx,wy,time){
     }
     break;}
   case '#':{
-    if(CURMAP==='sheol'){
+    if(CURMAP.startsWith('sheol')){
       masonry(sx,sy,wx,wy,MAS_SHEOL,time);
       const below=nbT(wx,wy,0,1);
       if((below==='D'||below==='O'||below==='E')&&hash(wx*3,wy*7)>.45){
@@ -1806,6 +1807,49 @@ sheol: mkmap([
 "#DDDDDDDOODDDDDDDDDDD#",
 "######################",
 ]),
+/* ----- Postgame Last Hunger descent (writ-only deeper Sheol). All use '#' walls + Sheol
+   floors (D/O/E) so they render with the Sheol style; corridor row y=5 is open at the doorway
+   edges the WARPS hook into. Records/Gnawed open both edges (back + forward warps); the Hunger
+   Pit is the deepest, so its east edge stays walled (only a west doorway + the lair at the end). ----- */
+sheolRecords: mkmap([
+"##################",
+"#DDDDDDDDDDDDDDDD#",
+"#DOODDDDOODDDDOOD#",
+"#DDDDDDDDDDDDDDDD#",
+"#DDDDDDDDDDDDDDDD#",
+"DDDDDDDDDDDDDDDDDD",
+"#DDDDDDDDDDDDDDDD#",
+"#DOODDDDOODDDDOOD#",
+"#DDDDDDDDDDDDDDDD#",
+"#DDDDDDDDDDDDDDDD#",
+"##################",
+]),
+sheolGnawed: mkmap([
+"##################",
+"#DDDDDDDDDDDDDDDD#",
+"#DDDEDDDDDDDDEDDD#",
+"#DDDDDDDDDDDDDDDD#",
+"#DDDDDDDDDDDDDDDD#",
+"DDDDDDDDDDDDDDDDDD",
+"#DDDDDDDDDDDDDDDD#",
+"#DDDEDDDDDDDDEDDD#",
+"#DDDDDDDDDDDDDDDD#",
+"#DDDDDDDDDDDDDDDD#",
+"##################",
+]),
+sheolHunger: mkmap([
+"##################",
+"#DDDDDDDDDDDDDDDD#",
+"#DDEEDDDDDDDDEEDD#",
+"#DDDDDDDDDDDDDDDD#",
+"#DDDDDDDDDDDDDDDD#",
+"DDDDDDDDDDDDDDDDD#",
+"#DDDDDDDDDDDDDDDD#",
+"#DDDDDDDDDDDDDDDD#",
+"#DDEEDDDDDDDDEEDD#",
+"#DDDDDDDDDDDDDDDD#",
+"##################",
+]),
 heaven: mkmap([
 "XXXXXXXXXXXXXX",
 "X*****cc*****X",
@@ -1863,8 +1907,10 @@ dudael: mkmap([
 ]),
 };
 const MAPNAMES={earth:"Jared's Valley", hermon:"Mount Hermon", sheol:"Sheol — the Hollow Places",
-  heaven:"The Heavens", throne:"The Throne of Glory", dudael:"The Desert of Dudael"};
-const ARENAS={earth:'field',hermon:'mountain',sheol:'abyss',heaven:'sky',throne:'sky',dudael:'desert'};
+  heaven:"The Heavens", throne:"The Throne of Glory", dudael:"The Desert of Dudael",
+  sheolRecords:"Sheol — The Lower Records", sheolGnawed:"Sheol — The Gnawed Hollow", sheolHunger:"Sheol — The Hunger Pit"};
+const ARENAS={earth:'field',hermon:'mountain',sheol:'abyss',heaven:'sky',throne:'sky',dudael:'desert',
+  sheolRecords:'abyss',sheolGnawed:'abyss',sheolHunger:'abyss'};
 
 /* warps: stepping onto (x,y) of map -> dest */
 const WARPS=[
@@ -1874,6 +1920,13 @@ const WARPS=[
   {map:'hermon',x:5,y:19,to:'earth',tx:13,ty:1,face:'down'},
   {map:'earth',x:20,y:3,to:'sheol',tx:2,ty:7,face:'right',cond:()=>(F.petitionDone&&F.soulsHeard)||F.sheolSeen},
   {map:'sheol',x:1,y:7,to:'earth',tx:19,ty:3,face:'left'},
+  // Last Hunger descent (forward warps writ-only; back warps always open so the player can never be stranded)
+  {map:'sheol',x:20,y:7,to:'sheolRecords',tx:1,ty:5,face:'right',cond:()=>lastHungerActive()},
+  {map:'sheolRecords',x:0,y:5,to:'sheol',tx:19,ty:7,face:'left'},
+  {map:'sheolRecords',x:17,y:5,to:'sheolGnawed',tx:1,ty:5,face:'right',cond:()=>lastHungerActive()},
+  {map:'sheolGnawed',x:0,y:5,to:'sheolRecords',tx:16,ty:5,face:'left'},
+  {map:'sheolGnawed',x:17,y:5,to:'sheolHunger',tx:1,ty:5,face:'right',cond:()=>lastHungerActive()},
+  {map:'sheolHunger',x:0,y:5,to:'sheolGnawed',tx:16,ty:5,face:'left'},
   {map:'heaven',x:6,y:1,to:'throne',tx:5,ty:10,face:'up',cond:()=>(F.gate1&&F.gate2&&F.gate3)||F.throneSeen},
   {map:'heaven',x:7,y:1,to:'throne',tx:6,ty:10,face:'up',cond:()=>(F.gate1&&F.gate2&&F.gate3)||F.throneSeen},
 ];
@@ -1980,7 +2033,9 @@ function spawnP(o){particles.push(Object.assign({life:1,decay:.02,size:2,vx:0,vy
 let locBannerT=0, letterboxH=0, letterboxTarget=0;
 const LOC_SUBS={earth:'Where the sons of men multiply',hermon:'The summit of the oath',
   sheol:'The hollow places beneath',heaven:'The seven heavens',throne:'Before the Most High',
-  dudael:'The desert of the damned'};
+  dudael:'The desert of the damned',
+  sheolRecords:'Where the names of the dead are kept',sheolGnawed:'Something has been eating here',
+  sheolHunger:'The bottom of the world, and below it'};
 function showLocBanner(name){
   const el=$('locBanner');
   el.querySelector('.locName').textContent=name;
@@ -2149,15 +2204,15 @@ function currentObjective(){
       if(F.activeWrit==='lastHunger'){
         const wa=writState('lastHunger'), need=aw.requiredClues||3, have=wa.clues.length;
         if(have<need) return {chapter:"Postgame", title:aw.title,
-          objective:"Investigate The Last Hunger in Sheol. Find testimony among the dead — gather what the hollow remembers.",
+          objective:"Descend through the Lower Records and the Gnawed Hollow, and gather testimony from the dead.",
           short:"Find clues: "+have+" / "+need,
           flavor:aw.accusation||aw.description,
-          map:aw.region||"Sheol — the hollow places"};
+          map:"Sheol — the deeper hollow"};
         return {chapter:"Postgame", title:aw.title,
-          objective:"Confront The Last Hunger in the deeper hollow, east of the graves where Ohya once squatted.",
+          objective:"Descend to the Hunger Pit and confront The Last Hunger.",
           short:"Confront The Last Hunger",
           flavor:"It has no mouth until it remembers yours.",
-          map:aw.region||"Sheol — the hollow places"};
+          map:"Sheol — The Hunger Pit"};
       }
       return {chapter:"Postgame", title:aw.title,
         objective:"Investigate "+aw.title+" in "+(aw.region||"the hollow places")+". Descend, learn what the dead remember, and bring the matter to judgment.",
@@ -2332,16 +2387,16 @@ function toggleStats(){
         h+=`<div class="srow"><span>Witness</span><b>Abel, First Witness of the Grave</b></div>`;
       // Last Hunger: testimony checklist (pre-completion) so the player knows what to find and where.
       if(id==='lastHunger'&&!w.outcome){
-        const checks=[['nameGnawedGrave','Name-gnawed grave (lower hollow)'],
-                      ['hollowBiteMarks','Hollow bite marks (eastern cold fire)'],
-                      ['abelTestimony',"Abel's testimony (the first grave)"]];
+        const checks=[['abelTestimony',"Abel's testimony (the first grave)"],
+                      ['nameGnawedGrave','Name-gnawed grave (Lower Records)'],
+                      ['hollowBiteMarks','Hollow bite marks (Gnawed Hollow)']];
         h+=`<div class="flavor" style="margin-top:6px">Testimonies</div>`;
         for(const [cid,label] of checks)
           h+=`<div class="milestone">${hasWritClue(id,cid)?'✔':'□'} ${label}</div>`;
       }
       if(active){
         const ready = def.requiredClues ? (w.clues.length>=def.requiredClues) : true;
-        h+=`<div class="flavor" style="opacity:.85">${ready?'All testimony gathered — go to the <b>deep east</b>, where Ohya once squatted, and confront the hunger.':'Gather testimony: <b>Abel at the first grave</b>, the <b>gnawed stone</b> in the lower hollow, and the <b>eastern cold fire</b>.'}</div>`;
+        h+=`<div class="flavor" style="opacity:.85">${ready?'All testimony gathered — descend to the <b>Hunger Pit</b> and confront The Last Hunger.':'Descend through the <b>Lower Records</b> and the <b>Gnawed Hollow</b>. Gather testimony from Abel, the gnawed record, and the bite marks.'}</div>`;
       } else if(!w.outcome&&(w.status==='open'||w.status==='tracked'||w.status==='confronted')&&def.entryMap&&view==='world')
         h+=`<button onclick="beginWritFromLedger('${id.replace(/'/g,"\\'")}')">${w.status==='confronted'?'Resume Expedition':'Begin Expedition'}</button>`;
       h+=`</div>`;
@@ -2371,10 +2426,10 @@ window.beginWritFromLedger=function(id){
     await note('<b>'+def.title+'</b><br>'+def.description);
     if(id==='lastHunger'){
       if(lastHungerClueCount()>=(WRITS.lastHunger.requiredClues||3)){
-        await note('The testimony is already gathered. Go to the <b>deep east, where Ohya once squatted</b> — the hunger will answer there.');
+        await note('The testimony is gathered. Descend past Ohya\'s wound in the deep east, down to the <b>Hunger Pit</b> — the hunger will answer there.');
       } else {
-        await note('Seek three testimonies in Sheol: <b>Abel at the first grave</b>, the <b>name-gnawed stone</b> in the lower hollow, and the <b>eastern cold fire</b>.');
-        await note('When the Ledger holds all three, go to the <b>deep east, where Ohya once squatted</b>. The hunger will answer there.');
+        await note('Seek three testimonies: <b>Abel at the first grave</b>, the <b>name-gnawed record</b> in the Lower Records, and the <b>bite marks</b> in the Gnawed Hollow.');
+        await note('Descend past Ohya\'s wound, in the deep east of Sheol. When the Ledger holds all three, go on to the <b>Hunger Pit</b>; the hunger will answer there.');
       }
     } else {
       await note('Metatron descends under writ of judgment. The Ledger is open; the hollow will answer.');
@@ -2977,6 +3032,16 @@ const CHESTS=[
   text:'You open a door of pearl no larger than a hand. Inside: mountains of snow, oceans of hail, wind folded like linen — whole winters in storage, each labeled in a script of frost. You take the seal that was set upon them.'},
 ];
 function npcAt(map,x,y){return NPCS.find(n=>n.map===map&&n.x===x&&n.y===y&&n.vis());}
+/* Interaction lookup: exact tile, but a `big` NPC (e.g. Ohya) answers from any tile within 1 of
+   its sprite so its oversized form isn't finicky to talk to. walkable() still uses npcAt (single
+   tile) so collision/footprint is unchanged. */
+function npcInteractAt(map,x,y){
+  return NPCS.find(n=>{
+    if(n.map!==map||!n.vis())return false;
+    if(n.x===x&&n.y===y)return true;
+    return n.big&&Math.abs(n.x-x)<=1&&Math.abs(n.y-y)<=1;
+  });
+}
 function chestAt(map,x,y){return CHESTS.find(c=>c.map===map&&c.x===x&&c.y===y&&!c.got);}
 
 /* =====================================================================
@@ -2993,6 +3058,16 @@ const PROPS=[
  {map:'sheol',x:6,y:11,t:'stalag',tall:1,solid:1},{map:'sheol',x:14,y:3,t:'stalag',tall:1,solid:1},
  {map:'sheol',x:2,y:3,t:'brazier',tall:1,solid:1},{map:'sheol',x:19,y:10,t:'brazier',tall:1,solid:1},
  {map:'sheol',x:10,y:7,t:'rubble'},{map:'sheol',x:16,y:9,t:'rubble'},
+ // Postgame marker where Ohya stood — the descent begins here (hidden during the campaign).
+ {map:'sheol',x:17,y:7,t:'wound',tall:1,vis:()=>F.postgame},
+ // Last Hunger descent props (only seen inside the writ-gated maps). Nothing solid sits on the
+ // corridor row (y=5), so each map is walkable end to end; only the Hunger Pit's wound caps the far end.
+ {map:'sheolRecords',x:9,y:4,t:'stalag',tall:1,solid:1},
+ {map:'sheolRecords',x:3,y:2,t:'brazier',tall:1,solid:1},{map:'sheolRecords',x:14,y:8,t:'brazier',tall:1,solid:1},
+ {map:'sheolGnawed',x:9,y:4,t:'stalag',tall:1,solid:1},
+ {map:'sheolGnawed',x:3,y:2,t:'brazier',tall:1,solid:1},{map:'sheolGnawed',x:14,y:8,t:'brazier',tall:1,solid:1},
+ {map:'sheolHunger',x:16,y:5,t:'wound',tall:1,solid:1},
+ {map:'sheolHunger',x:8,y:3,t:'stalag',tall:1,solid:1},{map:'sheolHunger',x:8,y:8,t:'stalag',tall:1,solid:1},
  {map:'heaven',x:4,y:19,t:'banner',tall:1},{map:'heaven',x:9,y:19,t:'banner',tall:1},
  {map:'heaven',x:4,y:13,t:'banner',tall:1},{map:'heaven',x:9,y:13,t:'banner',tall:1},
  {map:'heaven',x:4,y:6,t:'banner',tall:1},{map:'heaven',x:9,y:6,t:'banner',tall:1},
@@ -3002,7 +3077,7 @@ const PROPS=[
  {map:'dudael',x:4,y:8,t:'rubble'},{map:'dudael',x:13,y:4,t:'rubble'},
  {map:'dudael',x:11,y:8,t:'skull'},{map:'dudael',x:5,y:3,t:'skull'},
 ];
-function propSolidAt(map,x,y){return PROPS.some(p=>p.map===map&&p.x===x&&p.y===y&&p.solid);}
+function propSolidAt(map,x,y){return PROPS.some(p=>p.map===map&&p.x===x&&p.y===y&&p.solid&&(!p.vis||p.vis()));}
 function drawProp(p,time){
   // brazier embers & rune glimmer drift up in world space (48px coords)
   if(p.t==='brazier'&&Math.random()<0.05)
@@ -3084,6 +3159,31 @@ function drawProp(p,time){
     ctx.fillStyle='#3c3554';
     ctx.beginPath();ctx.moveTo(sx+5,sy+30);ctx.lineTo(sx+13,sy-14);ctx.lineTo(sx+15,sy+30);ctx.closePath();ctx.fill();
     break;}
+  case 'wound':{ // a tear in the dark where a name was eaten — postgame marker / the Hunger's lair
+    const pu=0.5+0.5*Math.sin(time/420+p.x*2);
+    if(Math.random()<0.04)
+      spawnP({x:p.x*TS+TS/2+rnd(-4,4),y:p.y*TS+TS/2,vx:rnd(-.15,.15),vy:rnd(-.7,-.3),
+        size:2.2,color:'rgba(150,90,210,0.8)',decay:.016,map:p.map});
+    ctx.fillStyle='rgba(0,0,0,0.4)';
+    ctx.beginPath();ctx.ellipse(sx+16,sy+27,12,4,0,0,7);ctx.fill();
+    ctx.fillStyle='#0c0814';                                          // jagged outer tear
+    ctx.beginPath();
+    ctx.moveTo(sx+16,sy-22);ctx.lineTo(sx+22,sy-6);ctx.lineTo(sx+18,sy+8);ctx.lineTo(sx+24,sy+24);
+    ctx.lineTo(sx+16,sy+18);ctx.lineTo(sx+8,sy+24);ctx.lineTo(sx+14,sy+8);ctx.lineTo(sx+10,sy-6);
+    ctx.closePath();ctx.fill();
+    ctx.save();ctx.shadowColor='#a85ad2';ctx.shadowBlur=12+6*pu;       // glowing core, purple→gold
+    const wg=ctx.createLinearGradient(sx+16,sy-18,sx+16,sy+20);
+    wg.addColorStop(0,'rgba(210,170,90,'+(0.5+0.4*pu)+')');
+    wg.addColorStop(0.5,'rgba(150,90,210,'+(0.6+0.3*pu)+')');
+    wg.addColorStop(1,'rgba(60,20,90,0.7)');
+    ctx.fillStyle=wg;
+    ctx.beginPath();ctx.moveTo(sx+16,sy-18);
+    ctx.quadraticCurveTo(sx+19,sy,sx+16,sy+16);
+    ctx.quadraticCurveTo(sx+13,sy,sx+16,sy-18);ctx.closePath();ctx.fill();
+    ctx.restore();
+    ctx.strokeStyle='rgba(255,236,180,'+(0.5+0.4*pu)+')';ctx.lineWidth=1.4;
+    ctx.beginPath();ctx.moveTo(sx+16,sy-16);ctx.lineTo(sx+16,sy+14);ctx.stroke();
+    break;}
   case 'brazier':{
     const fl=0.5+0.5*Math.sin(time/170+p.x*3);
     ctx.fillStyle='rgba(0,0,0,0.3)';
@@ -3164,8 +3264,8 @@ const TRIGGERS=[
    await note('The chasm breathes cold up from the dark; the dead are waiting below. But you must '+need.join(', and ')+' before Sheol will receive you.');
  }},
  {map:'sheol',cond:(x,y)=>!F.sheolSeen,run:()=>cs_sheolEnter()},
- // Postgame: stepping into the deep east (Ohya's old spot) with all testimony gathered confronts The Last Hunger.
- {map:'sheol',cond:(x,y)=>x===17&&y===7&&lastHungerReady()&&!writState('lastHunger').outcome,run:()=>cs_lastHungerConfrontation()},
+ // Postgame: reaching the lip of the Hunger Pit with all testimony gathered confronts The Last Hunger.
+ {map:'sheolHunger',cond:(x,y)=>x===15&&y===5&&lastHungerReady()&&!writState('lastHunger').outcome,run:()=>cs_lastHungerConfrontation()},
  {map:'heaven',cond:(x,y)=>!F.heavenSeen,run:()=>cs_heavenEnter()},
  {map:'heaven',cond:(x,y)=>y<=4&&!F.starsSeen,run:()=>cs_stars()},
  {map:'throne',cond:(x,y)=>y<=4&&!F.throneDone,run:()=>cs_throne()},
@@ -3512,32 +3612,27 @@ const INSPECTS=[
  {map:'sheol',x:14,y:3,run:async()=>{
    await note('Stone teeth grown down from a roof you cannot see: the underside of the mountains, the foundations men build their certainties upon. From beneath, they look less like roots than like the bars of a cage.');
  }},
- /* ----- The Last Hunger (postgame Writ). Active-only branches give clues; otherwise ambient
-    flavor, so the campaign Sheol is unchanged. Anchored on solid props (6,11 stalagmite,
-    19,10 brazier) so they are reliably faceable; the confrontation is at the deep east (17,7). ----- */
- {map:'sheol',x:6,y:11,run:async()=>{
-   if(lastHungerActive()){
-     await discoverLastHungerClue('nameGnawedGrave','The grave is full, but the name above it has been chewed out of the stone. Not scratched away — bitten. The dead can lose many things in Sheol. Their names should not be one of them.');
-     return;
-   }
-   await note('A grave-stone leans among the stone teeth, its face worn smooth. Whoever lies here is bedded close with the others, like a letter waiting in a drawer.');
- }},
- {map:'sheol',x:19,y:10,run:async()=>{
-   if(lastHungerActive()){
-     await discoverLastHungerClue('hollowBiteMarks','The floor is scored with crescent gouges too wide for any human jaw. The marks lead east, then downward, though the map says there is no further down.');
-     return;
-   }
-   await note('A brazier of cold fire on the eastern edge, throwing grey attention instead of heat. The floor around it is scuffed, as if something paces here when no one is keeping the record.');
- }},
+ /* ----- The Last Hunger (postgame Writ). The expedition is now a descent across writ-only deeper
+    Sheol maps: the wound marker (sheol 17,7) shows where Ohya stood + where the descent begins;
+    clues live in sheolRecords/sheolGnawed; the confrontation is in sheolHunger. Clue inspects use
+    discoverLastHungerClue (records once); campaign Sheol is untouched (wound is postgame-only). ----- */
  {map:'sheol',x:17,y:7,run:async()=>{
-   if(!lastHungerActive()){
-     await note('The deep east of the graves, where Ohya once filled the dark. The hollow goes down past where any map can follow. Something at the bottom is patient.');
-     return;
-   }
-   if(writState('lastHunger').outcome){
-     await note('The hollow where you ended the Last Hunger. The dark lies flat now, like a page that has been written and closed.');
-     return;
-   }
+   if(lastHungerActive())
+     await note('The wound where Ohya once stood leans east, and downward. Beyond it the <b>Lower Records</b> wait — descend, and gather what the dead remember.');
+   else
+     await note('Ohya once filled this hollow with famine. Now only the wound of his absence remains — and beneath it, faint as a held breath, something hungrier has begun to answer.');
+ }},
+ {map:'sheolRecords',x:9,y:4,run:async()=>{
+   if(!(await discoverLastHungerClue('nameGnawedGrave','The grave is full, but the name above it has been chewed out of the stone. Not scratched away — bitten. The dead can lose many things in Sheol. Their names should not be one of them.')))
+     await note('A grave-stone in the Lower Records, its carved name worn down to nothing.');
+ }},
+ {map:'sheolGnawed',x:9,y:4,run:async()=>{
+   if(!(await discoverLastHungerClue('hollowBiteMarks','The floor is scored with crescent gouges too wide for any human jaw. The marks lead east, then downward, though the map says there is no further down.')))
+     await note('The stone of the Gnawed Hollow is scored and pitted, as if something has been feeding against it.');
+ }},
+ {map:'sheolHunger',x:16,y:5,run:async()=>{
+   if(!lastHungerActive()){ await note('A wound in the dark at the bottom of the pit. It is not breathing. That is somehow worse.'); return; }
+   if(writState('lastHunger').outcome){ await note('The pit where you ended the Last Hunger. The wound has closed; the dark lies flat.'); return; }
    await cs_lastHungerConfrontation(); // warns if testimony incomplete, else fights + judges
  }},
  {map:'heaven',x:4,y:6,run:async()=>{
@@ -3554,7 +3649,7 @@ function tryInteract(){
   const dx={up:0,down:0,left:-1,right:1}[P.facing];
   const dy={up:-1,down:1,left:0,right:0}[P.facing];
   const tx=P.x+dx, ty=P.y+dy;
-  const n=npcAt(P.map,tx,ty);
+  const n=npcInteractAt(P.map,tx,ty);
   if(n){ n.talkFace=P.facing; runScript(n.talk); return; }
   const c=chestAt(P.map,tx,ty);
   if(c){ runScript(async()=>{
@@ -3694,7 +3789,7 @@ function drawWorld(time){
   }
   // flat props (ground decals) under everything that walks
   for(const pr of PROPS){
-    if(pr.map!==P.map||pr.tall)continue;
+    if(pr.map!==P.map||pr.tall||(pr.vis&&!pr.vis()))continue;
     drawProp(pr,time);
   }
   // depth-sorted entities: npcs, follower, player, tall props
@@ -3726,7 +3821,7 @@ function drawWorld(time){
   ents.push({y:iy, draw:()=>drawChar(palKey,P.facing,ix*TS,iy*TS,
     {bob,frame:wfr(palKey),glow:F.metatron?'#ffe9a8':null,halo:F.metatron})});
   for(const pr of PROPS){
-    if(pr.map!==P.map||!pr.tall)continue;
+    if(pr.map!==P.map||!pr.tall||(pr.vis&&!pr.vis()))continue;
     ents.push({y:pr.y, draw:()=>drawProp(pr,time)});
   }
   ents.sort((a,b)=>a.y-b.y).forEach(e=>e.draw());
@@ -3778,7 +3873,7 @@ function lightingPass(time){
     g.addColorStop(0,'rgba(40,60,140,0.18)');g.addColorStop(1,'rgba(0,0,0,0.22)');
     ctx.fillStyle=g;ctx.fillRect(0,0,W,Hh);
   }
-  if(P.map==='sheol'){
+  if(P.map.startsWith('sheol')){ // incl. the postgame descent maps (sheolRecords/Gnawed/Hunger)
     const g=ctx.createRadialGradient(W/2,Hh/2,90,W/2,Hh/2,420);
     g.addColorStop(0,'rgba(0,0,0,0)');g.addColorStop(1,'rgba(0,0,0,0.74)');
     ctx.fillStyle=g;ctx.fillRect(0,0,W,Hh);
@@ -3820,7 +3915,7 @@ function ambient(time){
     else                  // a leaf tumbling down
       spawnP({x:rnd(0,CW),y:-5,vx:rnd(-.6,-.2),vy:rnd(.5,.9),size:3.5,color:'rgba(120,160,80,0.85)',decay:.005,screen:true});
   }
-  else if(P.map==='sheol')spawnP({x:rnd(0,CW),y:CH+4,vx:rnd(-.2,.2),vy:rnd(-1,-.4),size:2,color:'#d06030',decay:.008,screen:true});
+  else if(P.map.startsWith('sheol'))spawnP({x:rnd(0,CW),y:CH+4,vx:rnd(-.2,.2),vy:rnd(-1,-.4),size:2,color:'#d06030',decay:.008,screen:true});
   else if(P.map==='dudael')spawnP({x:-4,y:rnd(CH*0.2,CH),vx:rnd(.8,1.6),vy:rnd(-.15,.15),size:2,color:'rgba(220,180,120,0.7)',decay:.007,screen:true});
   else if(P.map==='heaven'||P.map==='throne')spawnP({x:rnd(0,CW),y:rnd(0,CH),vx:0,vy:rnd(-.3,-.1),size:2,color:'#fff6d8',decay:.01,screen:true});
 }

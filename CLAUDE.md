@@ -200,6 +200,32 @@ playable arc remain **done and verified**.
   inert when not-ready/inactive/completed and during the campaign. Verified in-browser (checklist
   ✔/□ per clue, Begin vs Resume guidance, resume flow, trigger fires only when ready, campaign
   untouched; zero console errors) + adversarial review (**0 findings**).
+- **The Last Hunger — deeper Sheol descent (2026-06-14, Sprint 3A)**: turned the one-screen hunt
+  into a handcrafted descent — **Sheol mouth → Lower Records → Gnawed Hollow → Hunger Pit**. Three
+  new 18×11 maps `sheolRecords/sheolGnawed/sheolHunger` (in `MAPS`; `#` walls + `D/O/E` floors;
+  corridor row y=5 open at the doorway edges the WARPS use — Records/Gnawed open both edges, the
+  Hunger Pit's east edge stays walled as the deepest). Added `MAPNAMES`/`ARENAS('abyss')`/
+  `LOC_SUBS`. **Warps**: descent chain with forward warps `cond:()=>lastHungerActive()` and back
+  warps **always open** (never strandable); the deeper maps are intentionally NOT in the warp
+  checkpoint list (mercy returns to the Sheol mouth). **Clues relocated**: Abel = original Sheol
+  `soul1`; `nameGnawedGrave` = `sheolRecords` (9,4); `hollowBiteMarks` = `sheolGnawed` (9,4) — both
+  on solid `stalag` props, recorded via `discoverLastHungerClue`. The old sheol (6,11)/(19,10)/(17,7)
+  clue+confront inspects were removed. **Confrontation** moved to `sheolHunger`: a solid `wound`
+  lair at (16,5) with the confront inspect, plus a step-`TRIGGERS` at (15,5) (`lastHungerReady()`).
+  **Ohya marker**: a glowing `wound` prop at sheol (17,7) `vis:()=>F.postgame` marks where Ohya
+  stood + hints the descent. **Prop `vis` support** added to `propSolidAt` + both draw loops
+  (`if(p.vis&&!p.vis())continue`) and a new `drawProp` `'wound'` case (purple→gold tear).
+  **Ohya hitbox fix**: new `npcInteractAt()` (exact tile, plus within-1 for `big` NPCs — only Ohya)
+  used by `tryInteract`; `walkable()` still uses single-tile `npcAt` so collision is unchanged.
+  **Rendering/audio routing**: the three `CURMAP==='sheol'` style checks, `lightingPass`, `ambient`,
+  and `currentMusicKey` were broadened to `startsWith('sheol')` so the deeper maps render + sound
+  as Sheol (`CURMAP` stays `=P.map` so `nbT` neighbor lookups stay correct). Guidance/objective/
+  checklist updated for the route. Verified in-browser end-to-end (full descent, clue recording in
+  the new maps, confront→judgment→return, back-warps, forward-warp gating, Ohya adjacent interaction
+  + campaign fight intact, descent inert in campaign; **screenshot** confirms Sheol look + the wound;
+  zero console errors) + 9-agent adversarial review (3 findings applied: `lightingPass`/`ambient`
+  `startsWith` + a map comment fix). *Note: postgame Metatron has no random encounters (`rollEncounter`
+  returns early on `F.metatron`), so the descent maps are encounter-free — visible enemies are Sprint 3B.*
 - Battle: `drawBattleScene` (arena parallax, `platform()`, enemy art 1.5×, hit
   flash `B.hitT`, attack lunge `B.lunge`), `drawCharBig` (back-view, feet at y=160).
 
@@ -362,18 +388,20 @@ these tests write to the preview origin's save.
 6. **Human playtest** of the full arc — automated drivers verified flow, not feel.
    **This is now the single most valuable remaining step** (all no-asset engineering done).
 
-**Recommended next session (per the 2026-06-13 pivot):** **Sprint 3 — visible dungeon
-enemies.** Sprints 1 (expedition wrapper) and 2 (The Last Hunger, the full proof-of-loop)
-are done. Sprint 3 is the next PMD-feeling step: add **on-map enemies in expedition mode
-that trigger the existing battles** (place roaming/static enemy entities in Sheol that,
-on contact/interact, call `startBattle(<key>)`; gate them on `lastHungerActive()` or a
-future generic `expeditionActive()` so they never touch the campaign). Reuse the
-`ENEMIES` table and the `INSPECTS`/NPC contact patterns; do **not** rewrite combat or add
-grid movement yet. Alternatives if preferred: **active party slots** (choose 1–2
-companions from `F.companions` before an expedition — note the roster/`P.party` split: Abel
-is already a roster companion, not a combat ally) or a **second hand-authored Writ** to
-prove repeatability. Then later: grid-combat-lite → procedural floors → writ board (roadmap
-in *Current goal*). **Art track is paused** (user handling graphics separately).
+**Recommended next session (per the 2026-06-13 pivot):** **Sprint 3B — visible dungeon
+enemies.** Sprints 1 (wrapper), 2 (The Last Hunger loop), 2.5 (UX polish), and 3A (deeper
+Sheol descent maps) are done. Sprint 3B is the next PMD-feeling step: add **on-map enemies in
+the descent maps that trigger the existing battles** — place static/roaming enemy entities in
+`sheolRecords/sheolGnawed/sheolHunger` that call `startBattle(<key>)` on contact/interact, gated
+on `lastHungerActive()` (or a future generic `expeditionActive()`) so they never touch the
+campaign. Reuse the `ENEMIES` table and the `INSPECTS`/NPC contact patterns; do **not** rewrite
+combat or add grid movement yet. *Implementation note for 3B:* postgame Metatron currently has
+**no** wild encounters (`rollEncounter` returns early on `F.metatron`), so on-map enemies must be
+explicit entities (NPC-like or step-triggers), not the grass-roll system. Alternatives if
+preferred: **active party slots** (choose 1–2 companions from `F.companions` before an
+expedition — note the roster/`P.party` split: Abel is a roster companion, not a combat ally) or a
+**second hand-authored Writ** to prove repeatability. Then later: grid-combat-lite → procedural
+floors → writ board (roadmap in *Current goal*). **Art track is paused** (user handling graphics).
 
 ---
 
