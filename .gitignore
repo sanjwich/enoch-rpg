@@ -1,0 +1,25 @@
+# Local/agent scratch files
+.claude/
+.hermes/
+
+# Packaged exports / archives
+*.zip
+*.7z
+*.rar
+
+# Logs and temporary files
+*.log
+*.tmp
+*.temp
+.DS_Store
+Thumbs.db
+
+# Node/build caches if added later
+node_modules/
+dist/
+build/
+.cache/
+
+# OS/editor
+.vscode/
+.idea/
