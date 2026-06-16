@@ -1939,7 +1939,8 @@ let P={map:'earth',x:5,y:10,fx:5,fy:10,facing:'down',moving:false,mt:0,
 let checkpoint={map:'earth',x:5,y:10};
 let encCooldown=0; // QA-006: steps of guaranteed safety before wild encounters resume
 let camX=0,camY=0, shakeT=0, shakeA=0;
-let particles=[], follower={x:5,y:11};
+let particles=[], follower={x:5,y:11}, followerPrev={x:5,y:11};
+function setFollowerPos(x,y){ follower={x,y}; followerPrev={x,y}; }
 const era=()=>F.corruption && P.map==='earth';
 
 function tileAt(map,x,y){const m=MAPS[map];
@@ -2144,7 +2145,7 @@ function startWritMission(id){
   if(def.entryMap){
     P.map=def.entryMap; P.x=def.entryX; P.y=def.entryY; P.fx=P.x; P.fy=P.y;
     P.facing=def.entryFace||'down'; P.moving=false; P.mt=0;
-    follower={x:P.x,y:P.y+1};
+    setFollowerPos(P.x,P.y+1);
     checkpoint={map:P.map,x:P.x,y:P.y};
     setMusicTheme(currentMusicKey());
   }
@@ -2158,7 +2159,7 @@ function endWritMission(id,outcome){
   if(def.returnMap){
     P.map=def.returnMap; P.x=def.returnX; P.y=def.returnY; P.fx=P.x; P.fy=P.y;
     P.facing=def.returnFace||'down'; P.moving=false; P.mt=0;
-    follower={x:P.x,y:P.y+1};
+    setFollowerPos(P.x,P.y+1);
     checkpoint={map:P.map,x:P.x,y:P.y};
     setMusicTheme(currentMusicKey());
   }
@@ -3673,7 +3674,7 @@ function continueAsMetatron(){
   $('endScreen').style.display='none';
   ensurePostgameState(); F.postgame=true;
   P.map='sheol'; P.x=2; P.y=7; P.fx=2; P.fy=7; P.facing='right'; P.moving=false; P.mt=0;
-  follower={x:P.x,y:P.y+1};
+  setFollowerPos(P.x,P.y+1);
   checkpoint={map:'sheol',x:2,y:7};
   view='world'; paused=false; updateHUD(); setMusicTheme(currentMusicKey());
   saveGame();
@@ -3829,7 +3830,7 @@ function checkTriggersAndWarps(){
         await fadeOut(450);
         P.map=w.to;P.x=w.tx;P.y=w.ty;P.fx=w.tx;P.fy=w.ty;
         if(w.face)P.facing=w.face;
-        follower={x:P.x,y:P.y+1};
+        setFollowerPos(P.x,P.y+1);
         if(['earth','sheol','heaven','dudael'].includes(w.to))checkpoint={map:w.to,x:w.tx,y:w.ty};
         await fadeIn(450);
         showLocBanner(MAPNAMES[w.to]||w.to);
@@ -3869,7 +3870,9 @@ function updateWorld(dt){
       const foe=expEnemyAt(P.map,nx,ny); // visible expedition enemy → fight on contact, don't step onto it
       if(foe){ engageExpEnemy(foe); }
       else if(walkable(P.map,nx,ny)){
+        followerPrev={x:follower.x,y:follower.y};
         follower={x:P.x,y:P.y};
+        P.fx=P.x;P.fy=P.y;
         P.x=nx;P.y=ny;P.moving=true;P.mt=0;sfx.step();
       }
     }
@@ -3892,7 +3895,7 @@ function drawWorld(time){
   // interpolated player pixel position
   let ix=P.x, iy=P.y;
   if(P.moving){
-    const prevx=follower.x, prevy=follower.y;
+    const prevx=P.fx, prevy=P.fy;
     ix=prevx+(P.x-prevx)*P.mt; iy=prevy+(P.y-prevy)*P.mt;
   }
   camX=clamp(ix*TS+TS/2-CW/2, 0, Math.max(0,m.w*TS-CW));
@@ -3954,16 +3957,18 @@ function drawWorld(time){
     if(e.pal==='soul'){opts.alpha=.66;opts.glow='#9ab8e0';opts.bob=Math.sin(time/480+e.x)*2.5;}
     ents.push({y:e.y, draw:()=>drawChar(e.pal,e.face||'down',e.x*TS,e.y*TS,opts)});
   }
+  const fdx=P.moving?followerPrev.x+(follower.x-followerPrev.x)*P.mt:follower.x;
+  const fdy=P.moving?followerPrev.y+(follower.y-followerPrev.y)*P.mt:follower.y;
   if(P.party.includes('Uriel')&&!F.metatron){
-    ents.push({y:follower.y, draw:()=>drawChar('uriel',P.facing,follower.x*TS,follower.y*TS,
+    ents.push({y:fdy, draw:()=>drawChar('uriel',P.facing,fdx*TS,fdy*TS,
       {glow:'#ffe9a8',halo:true,alpha:.92,frame:wfr('uriel')})});
   }
   // Postgame witness follower (Sprint 4) — Abel walks behind Metatron when chosen as witness.
   // Independent of the Uriel path above (postgame is F.metatron, so Uriel never draws here);
   // reuses the shared `follower` trail tile + the soul ghost palette. No new art.
   else if(witnessFollowerActive()){
-    ents.push({y:follower.y, draw:()=>drawChar('soul',P.facing,follower.x*TS,follower.y*TS,
-      {glow:'#9ab8e0',alpha:.72,bob:Math.sin(time/500+follower.x)*2,frame:wfr('soul')})});
+    ents.push({y:fdy, draw:()=>drawChar('soul',P.facing,fdx*TS,fdy*TS,
+      {glow:'#9ab8e0',alpha:.72,bob:Math.sin(time/500+fdx)*2,frame:wfr('soul')})});
   }
   const bob=P.moving?Math.sin(P.mt*Math.PI)*-2:0;
   const palKey=F.metatron?'metatron':'enoch';
@@ -4223,7 +4228,7 @@ function loadGame(){
     d.chests.forEach((g,i)=>{if(CHESTS[i])CHESTS[i].got=g;});
     if(d.tiles){setTile('earth',20,3,d.tiles.e203);setTile('heaven',6,18,d.tiles.h618);
       setTile('heaven',6,12,d.tiles.h612);setTile('heaven',6,5,d.tiles.h65);}
-    P.fx=P.x;P.fy=P.y;P.moving=false;follower={x:P.x,y:P.y+1};
+    P.fx=P.x;P.fy=P.y;P.moving=false;setFollowerPos(P.x,P.y+1);
     return true;
   }catch(e){return false;}
 }

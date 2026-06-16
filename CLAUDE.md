@@ -77,22 +77,24 @@ playable arc remain **done and verified**.
   rendering (pipeline proven end-to-end). 5 tile skins registered behind
   `USE_TILE_SKINS=false` (disabled — they regress vs procedural; see gotchas).
 
-### Audio & music (in-engine WebAudio — **exists, do not "build from scratch"**)
-- **SFX**: `tone()` + `sfx{}` tiny synth (blip/confirm/hit/holy/dark/heal/fanfare/step).
-- **Generative music**: `MUSIC_THEMES` (title, earth, earth_corrupt, hermon, sheol,
-  heaven, throne, dudael, battle, **boss**). Each theme = a sustained detuned pad
-  (`setMusicTheme`, slow LFO vibrato) **plus** a `mel` generative-melody voice
-  (per-theme scale/pacing/rest). `updateMusic(dt)` (called each frame in `loop()`)
-  cross-fades volume by view and auto-switches theme via `currentMusicKey()`; boss
-  battles route to `boss` via `B.def.boss`. `musicVoice()` plays one-shot melody
-  notes through the music bus and disconnects on `onended` (no node leak). Pad nodes
-  (incl. `lfoG`) are stopped **and disconnected** on theme switch / mute.
-- **Controls**: `#musicBtn` mute toggle + `#musicVol` volume slider. Both persist to
-  localStorage (`enochMusicMuted`, `enochMusicVol`). `primeAudio()` unlocks the
-  AudioContext on first keydown/click.
-- **Remaining audio polish** (optional, not gaps): richer/longer melodic motifs;
-  per-encounter stingers; or swap to looping OGGs for higher fidelity (would break
-  the single-file constraint — only if the user relaxes it).
+### Audio & music
+- **SFX**: `tone()` + `sfx{}` tiny synth (blip/confirm/hit/holy/dark/heal/fanfare/step) —
+  still in-engine WebAudio.
+- **Music — instrumental MP3 tracks (2026-06-15, Hermes agent)**: the earlier procedural
+  WebAudio pad/melody/percussion scheduler was **removed** and replaced with looping
+  instrumental **MP3s**, one per area/mood at `assets/music/<key>.mp3` (title, earth,
+  earth_corrupt, hermon, sheol, heaven, throne, dudael, battle, boss). `MUSIC_TRACKS` +
+  `getMusicEl(key)` lazily create one `new Audio('assets/music/'+key+'.mp3')` per key
+  (looped, volume 0); `updateMusic(dt)` (called each frame in `loop()`) cross-fades volume
+  by view and `currentMusicKey()` picks the track (boss via `B.def.boss`; deeper Sheol maps
+  → `sheol`). Source WAV masters live in `assets/music/_wav/` (committed but **not loaded at
+  runtime**). ~36 MB of audio total.
+- **Controls**: `#musicBtn` mute toggle + `#musicVol` volume slider, persisted to localStorage
+  (`enochMusicMuted`, `enochMusicVol`). `primeAudio()` unlocks playback on first keydown/click
+  (browser autoplay policy).
+- *Constraint note:* this **relaxes the old single-file / procedural-audio rule** (user
+  decision 2026-06-15) — music is now external asset files, like the character/tile PNGs.
+  `index.html` itself is still a single no-build file.
 
 ### Game systems & content
 - Full story arc playable and verified: Watchers' fall → intercession branch →
@@ -226,6 +228,27 @@ playable arc remain **done and verified**.
   zero console errors) + 9-agent adversarial review (3 findings applied: `lightingPass`/`ambient`
   `startsWith` + a map comment fix). *Note: postgame Metatron has no random encounters (`rollEncounter`
   returns early on `F.metatron`), so the descent maps are encounter-free — visible enemies are Sprint 3B.*
+- **Expedition enemies + witness companions (2026-06-15, Sprint 3B + 4, Hermes agent)**:
+  *authored by the concurrent Hermes agent, integrated + verified here.* **Sprint 3B —
+  visible expedition enemies**: `EXPEDITION_ENEMIES` (declarative; reuse existing `ENEMIES`
+  keys) place on-map foes in the descent maps (`sheolRecords/sheolGnawed/sheolHunger`).
+  `expEnemyLive` gates them on the **active writ** (`F.postgame && isWritMissionActive` +
+  not judged + not yet felled) so the campaign never sees them; `updateWorld` calls
+  `expEnemyAt(nx,ny)` → `engageExpEnemy` (walking into one starts the normal `startBattle`);
+  a **win** records the id in `writState(writ).defeatedEnemies` (persisted → stays gone), a
+  flee/loss leaves it (retryable); none gate completion. Drawn in `drawWorld` (ghost/red).
+  Ledger shows a "Hollow cleared x/N foes" row. **Sprint 4 — active witness companion**:
+  `F.activeCompanion` (single COMPANIONS id or null; seeded by `ensurePostgameState`,
+  old-save safe). A **redeemed Abel** (from the Last Hunger Redeem judgment) can travel with
+  Metatron: a postgame-only **follower** (`witnessFollowerActive`, soul palette, reuses the
+  `follower` trail) **plus a capped combat assist** — battle menu `abelAlly` ("First Blood
+  Cries Out": modest Holy damage + `expose`, longer cooldown than Uriel). Chosen/dismissed
+  from a new Ledger **"Witnesses"** section (`setWitnessFromLedger`/`dismissWitnessFromLedger`).
+  Deliberately **separate from the campaign Uriel/`P.party`** path; never active in the
+  campaign. Also: `propVisible(p)` centralizes the prop-`vis` check across collision + both
+  draw loops. Verified in-browser (enemy live-gating/contact/defeat/persistence, witness
+  follower + combat assist + Ledger, campaign isolation, zero console errors); committed to
+  `main` with the MP3 audio (commit `8971aaa`).
 - Battle: `drawBattleScene` (arena parallax, `platform()`, enemy art 1.5×, hit
   flash `B.hitT`, attack lunge `B.lunge`), `drawCharBig` (back-view, feet at y=160).
 
@@ -358,11 +381,11 @@ these tests write to the preview origin's save.
 
 ## Exact next steps (prioritized)
 
-1. **Music system — ✅ BUILT & ENHANCED (2026-06-12).** WebAudio generative score is
-   in-engine: per-area pad themes + generative melody layer, distinct boss theme,
-   cross-fade, mute toggle + volume slider, persisted prefs. See "Audio & music"
-   above. *Only* remaining (optional): richer motifs or looping-OGG fidelity upgrade
-   (the latter breaks single-file — needs user sign-off).
+1. **Music system — ✅ REPLACED WITH MP3 TRACKS (2026-06-15, Hermes agent).** The earlier
+   procedural WebAudio score was removed in favor of looping instrumental **MP3s** under
+   `assets/music/` (one per area/mood) — see "Audio & music" above. The single-file/
+   procedural-audio constraint was relaxed by the user. *Remaining (optional): confirm the
+   final mixes/levels per area; trim `assets/music/_wav/` masters if a leaner repo is wanted.*
 2. **Balance pass — ✅ DONE.** QA-008 (dread multiplicative, 2026-06-12); QA-006
    (encounter cooldown + persisted, 2026-06-13); QA-007 (mercy item-floor, 2026-06-13);
    XP curve `level*25 → level*20` (2026-06-13). All verified in-browser + adversarial
@@ -388,20 +411,18 @@ these tests write to the preview origin's save.
 6. **Human playtest** of the full arc — automated drivers verified flow, not feel.
    **This is now the single most valuable remaining step** (all no-asset engineering done).
 
-**Recommended next session (per the 2026-06-13 pivot):** **Sprint 3B — visible dungeon
-enemies.** Sprints 1 (wrapper), 2 (The Last Hunger loop), 2.5 (UX polish), and 3A (deeper
-Sheol descent maps) are done. Sprint 3B is the next PMD-feeling step: add **on-map enemies in
-the descent maps that trigger the existing battles** — place static/roaming enemy entities in
-`sheolRecords/sheolGnawed/sheolHunger` that call `startBattle(<key>)` on contact/interact, gated
-on `lastHungerActive()` (or a future generic `expeditionActive()`) so they never touch the
-campaign. Reuse the `ENEMIES` table and the `INSPECTS`/NPC contact patterns; do **not** rewrite
-combat or add grid movement yet. *Implementation note for 3B:* postgame Metatron currently has
-**no** wild encounters (`rollEncounter` returns early on `F.metatron`), so on-map enemies must be
-explicit entities (NPC-like or step-triggers), not the grass-roll system. Alternatives if
-preferred: **active party slots** (choose 1–2 companions from `F.companions` before an
-expedition — note the roster/`P.party` split: Abel is a roster companion, not a combat ally) or a
-**second hand-authored Writ** to prove repeatability. Then later: grid-combat-lite → procedural
-floors → writ board (roadmap in *Current goal*). **Art track is paused** (user handling graphics).
+**Recommended next session (per the 2026-06-13 pivot):** Sprints 1 (wrapper), 2 (The Last
+Hunger loop), 2.5 (UX polish), 3A (deeper Sheol descent maps), **3B (visible expedition
+enemies)**, and **4 (active witness companion)** are all done — 3B/4 by the Hermes agent
+(2026-06-15), plus the **MP3 music switch**. The next PMD-feeling steps (roadmap in *Current
+goal*): a **second hand-authored Writ** (prove the loop repeats with new clues/boss/region —
+extend `WRITS` + `EXPEDITION_ENEMIES` for a second `writ`), then **expand the witness roster**
+(give Michael/Gabriel/etc. distinct combat assists as more souls are redeemed), then later
+**grid-combat-lite → procedural floors → a writ board** (multiple repeatable missions /
+fast-travel). Loose ends worth a pass: confirm the new MP3 mixes per area + decide whether to
+keep `assets/music/_wav/` masters in the repo. **Art track is paused** (user handling graphics).
+**Note:** the **Hermes agent** edits `index.html`/`assets` concurrently — treat surprise diffs as
+its work (verify, then integrate), same protocol as the Grok-edit memory.
 
 ---
 
