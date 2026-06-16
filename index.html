@@ -258,8 +258,8 @@ function tone(f,dur,type='sine',vol=0.06,delay=0){
   o.start(t);o.stop(t+dur+0.02);
 }
 const sfx={
-  blip:()=>tone(660,.07,'square',.03),
-  confirm:()=>{tone(520,.08,'square',.04);tone(780,.1,'square',.04,.07);},
+  blip:()=>tone(660,.07,'triangle',.03),
+  confirm:()=>{tone(520,.08,'triangle',.04);tone(780,.1,'triangle',.04,.07);},
   hit:()=>{tone(190,.16,'sawtooth',.07);tone(95,.2,'sawtooth',.05,.02);},
   holy:()=>{[523,659,784,1047].forEach((f,i)=>tone(f,.5,'sine',.045,i*.09));},
   dark:()=>{tone(140,.5,'sawtooth',.05);tone(99,.7,'triangle',.05,.1);},
@@ -268,98 +268,78 @@ const sfx={
   step:()=>tone(180,.03,'triangle',.012),
 };
 
-/* ---------------- ambient music (procedural atmosphere) ---------------- */
-let musicMuted=false, musicNodes=null, musicTheme=null, musicGain=null, musicVol=0;
-let musicMaster=0.8, melT=0; // master = user volume 0..1; melT = melody scheduler countdown
-/* Each theme is a sustained pad (drone) plus an optional `mel` voice: a slow
-   generative motif drawn from `notes`, one note every gap[min..max] ms (with a
-   `rest` chance of silence) — gives each place a moving melodic line, not a flat
-   drone. Melody voices route through the music bus so they obey volume/mute. */
-const MUSIC_THEMES={
-  title:{root:82.41,pad:[110,164.81,220],type:'sine',vol:.028,
-    mel:{notes:[220,261.63,329.63,392,440],gap:[1500,2800],dur:1.6,vol:.03,type:'sine',rest:.3}},
-  earth:{root:73.42,pad:[98,146.83],type:'triangle',vol:.024,
-    mel:{notes:[146.83,174.61,196,220,261.63],gap:[1600,3000],dur:1.5,vol:.026,type:'triangle',rest:.35}},
-  earth_corrupt:{root:65.41,pad:[87.31,103.83],type:'sawtooth',vol:.022,
-    mel:{notes:[130.81,155.56,185,207.65],gap:[1900,3400],dur:1.7,vol:.024,type:'sawtooth',rest:.45}},
-  hermon:{root:98,pad:[130.81,196],type:'sine',vol:.026,
-    mel:{notes:[196,261.63,329.63,392],gap:[1800,3200],dur:1.6,vol:.024,type:'sine',rest:.4}},
-  sheol:{root:55,pad:[73.42,82.41],type:'triangle',vol:.03,
-    mel:{notes:[110,130.81,146.83],gap:[2600,4400],dur:2.4,vol:.03,type:'triangle',rest:.5}},
-  heaven:{root:110,pad:[146.83,220],type:'sine',vol:.028,
-    mel:{notes:[440,523.25,659.25,783.99,880],gap:[900,1900],dur:1.4,vol:.022,type:'sine',rest:.25}},
-  throne:{root:130.81,pad:[174.61,261.63],type:'sine',vol:.03,
-    mel:{notes:[261.63,329.63,392,523.25],gap:[1100,2200],dur:1.6,vol:.026,type:'sine',rest:.3}},
-  dudael:{root:77.78,pad:[103.83,116.54],type:'sawtooth',vol:.026,
-    mel:{notes:[155.56,185,233.08],gap:[2200,3800],dur:1.9,vol:.024,type:'sawtooth',rest:.5}},
-  battle:{root:69.3,pad:[92.5,138.59,185],type:'square',vol:.025,
-    mel:{notes:[138.59,164.81,185,246.94],gap:[420,720],dur:.5,vol:.02,type:'square',rest:.15}},
-  boss:{root:61.74,pad:[82.41,116.54,146.83],type:'sawtooth',vol:.03,
-    mel:{notes:[92.5,123.47,138.59,185,196],gap:[300,560],dur:.42,vol:.024,type:'sawtooth',rest:.1}},
-};
+/* ---------------- instrumental music (audio-file playback) ----------------
+   Background music is now real instrumental MP3 tracks (assets/music/<key>.mp3),
+   one per area/mood — composed/mastered offline for the biblical dark-fantasy tone.
+   The old procedural oscillator pad/melody/percussion scheduler has been removed;
+   only SFX (see `tone`/`sfx`) still use the tiny synth, for UI/hit feedback.
+   Tracks loop and cross-fade on theme change; playback begins only after a user
+   gesture (primeAudio) per browser autoplay policy, and play() rejections are
+   swallowed so nothing throws. The function/control surface (currentMusicKey,
+   setMusicTheme, updateMusic, setMusicVol, toggleMusic, primeAudio) is unchanged. */
+let musicMuted=false, musicTheme=null; // musicTheme = current logical track key (e.g. 'sheol')
+let musicMaster=0.8;                    // master = user volume 0..1
+const MUSIC_BASEVOL=0.9;                // ceiling on top of master so mastered MP3s sit at a comfortable level
+const MUSIC_TRACKS={title:1,earth:1,earth_corrupt:1,hermon:1,sheol:1,heaven:1,throne:1,dudael:1,battle:1,boss:1};
+const musicEls=Object.create(null);     // key -> HTMLAudioElement (lazy, cached so a track resumes mid-phrase)
+let musicCur=null;                       // {key,el,gain} the active track (gain = 0..1 fade level)
+let musicFades=[];                       // [{el,gain}] tracks fading out (paused & reset once silent)
+function getMusicEl(key){
+  if(!MUSIC_TRACKS[key])return null;
+  let el=musicEls[key];
+  if(!el){ el=new Audio('assets/music/'+key+'.mp3'); el.loop=true; el.preload='auto'; el.volume=0; musicEls[key]=el; }
+  return el;
+}
 function currentMusicKey(){
   if(view==='title')return 'title';
   if(view==='battle')return (B&&B.def&&B.def.boss)?'boss':'battle';
   if(P.map==='earth')return era()?'earth_corrupt':'earth';
   const mk=(P.map&&P.map.startsWith('sheol'))?'sheol':P.map; // deeper Sheol maps share the Sheol theme
-  return MUSIC_THEMES[mk]?mk:'earth';
+  return MUSIC_TRACKS[mk]?mk:'earth';
+}
+// Start (or cross-fade to) the instrumental track for `key`. The previous track is
+// pushed onto musicFades to ramp down while the new one ramps up (see updateMusic).
+// Only actually calls play() once the audio has been primed by a user gesture.
+function startMusicTrack(key){
+  const el=getMusicEl(key); if(!el)return;
+  if(musicCur){
+    if(musicCur.key===key)return;              // already playing this track
+    musicFades.push({el:musicCur.el,gain:musicCur.gain});
+    musicCur=null;
+  }
+  musicCur={key,el,gain:0}; el.volume=0;
+  if(audioPrimed){ try{ const p=el.play(); if(p&&p.catch)p.catch(()=>{}); }catch(e){} }
 }
 function setMusicTheme(key){
-  const a=ac(); if(!a||musicMuted||musicTheme===key)return;
-  if(musicNodes){musicNodes.forEach(n=>{try{n.o.stop();n.lfo.stop();n.o.disconnect();n.lfo.disconnect();n.g.disconnect();if(n.lfoG)n.lfoG.disconnect();}catch(e){}});musicNodes=null;}
-  const th=MUSIC_THEMES[key]; if(!th)return;
-  if(!musicGain){musicGain=a.createGain();musicGain.connect(a.destination);musicGain.gain.value=0;}
-  musicNodes=[];
-  th.pad.forEach((f,i)=>{
-    const o=a.createOscillator(),g=a.createGain(),lfo=a.createOscillator(),lfoG=a.createGain();
-    o.type=th.type; o.frequency.value=f;
-    g.gain.value=th.vol*(i?0.55:1);
-    lfo.frequency.value=0.04+i*0.015; lfoG.gain.value=0.012;
-    lfo.connect(lfoG); lfoG.connect(g.gain);
-    o.connect(g); g.connect(musicGain);
-    o.start(); lfo.start();
-    musicNodes.push({o,g,lfo,lfoG});
-  });
-  musicTheme=key;
+  if(musicTheme===key)return;
+  musicTheme=key;                              // track the logical key even while muted
+  if(musicMuted||!key)return;
+  startMusicTrack(key);
 }
-// One short melodic note, routed through the music bus (so it inherits the
-// cross-fade volume + master volume and is silenced on mute). Self-stopping —
-// nothing to track or leak.
-function musicVoice(f,dur,type,vol){
-  const a=ac(); if(!a||!musicGain)return;
-  const o=a.createOscillator(),g=a.createGain();
-  o.type=type; o.frequency.value=f;
-  const t=a.currentTime;
-  g.gain.setValueAtTime(0.0001,t);
-  g.gain.exponentialRampToValueAtTime(Math.max(0.0002,vol),t+0.08);
-  g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
-  o.connect(g); g.connect(musicGain);
-  o.onended=()=>{try{o.disconnect();g.disconnect();}catch(e){}}; // release nodes (melody fires often)
-  o.start(t); o.stop(t+dur+0.05);
-}
+const _mclamp=v=>v<0?0:v>1?1:v;
+// Per-frame: ensure the right track is selected, ramp the active track toward its
+// target level (full in title/world/battle, silent elsewhere), and ramp out any
+// fading tracks — pausing & rewinding them once inaudible so nothing keeps playing.
 function updateMusic(dt){
-  const a=ac(); if(!a||musicMuted)return;
   const want=currentMusicKey();
   if(want!==musicTheme)setMusicTheme(want);
   const target=(view==='title'||view==='world'||view==='battle')?1:0;
-  musicVol+=(target-musicVol)*Math.min(1,dt*0.0015);
-  if(musicGain)musicGain.gain.value=musicVol*0.42*musicMaster;
-  // generative melody: schedule a note from the active theme's motif
-  const th=MUSIC_THEMES[musicTheme];
-  if(th&&th.mel&&musicVol>0.05&&musicMaster>0){
-    melT-=dt;
-    if(melT<=0){
-      const m=th.mel;
-      melT=m.gap[0]+Math.random()*(m.gap[1]-m.gap[0]);
-      if(Math.random()>=m.rest)
-        musicVoice(m.notes[Math.floor(Math.random()*m.notes.length)],m.dur||1.2,m.type,m.vol);
-    }
+  const kIn=Math.min(1,dt*0.003), kOut=Math.min(1,dt*0.004);
+  if(musicCur){
+    musicCur.gain+=((musicMuted?0:target)-musicCur.gain)*kIn;
+    musicCur.el.volume=_mclamp(musicCur.gain*musicMaster*MUSIC_BASEVOL);
+  }
+  for(let i=musicFades.length-1;i>=0;i--){
+    const f=musicFades[i];
+    f.gain+=(0-f.gain)*kOut;
+    f.el.volume=_mclamp(f.gain*musicMaster*MUSIC_BASEVOL);
+    if(f.gain<0.012){ try{ f.el.pause(); f.el.currentTime=0; }catch(e){} musicFades.splice(i,1); }
   }
 }
 function setMusicVol(v){
   musicMaster=Math.max(0,Math.min(1,v));
   try{localStorage.setItem('enochMusicVol',String(musicMaster));}catch(e){}
-  if(musicGain&&!musicMuted)musicGain.gain.value=musicVol*0.42*musicMaster;
+  if(musicCur&&!musicMuted)musicCur.el.volume=_mclamp(musicCur.gain*musicMaster*MUSIC_BASEVOL);
 }
 function toggleMusic(){
   musicMuted=!musicMuted;
@@ -367,9 +347,15 @@ function toggleMusic(){
   const btn=$('musicBtn');
   btn.textContent=musicMuted?'♪ OFF':'♪ ON';
   btn.classList.toggle('muted',musicMuted);
-  if(musicMuted){if(musicNodes){musicNodes.forEach(n=>{try{n.o.stop();n.lfo.stop();n.o.disconnect();n.lfo.disconnect();n.g.disconnect();if(n.lfoG)n.lfoG.disconnect();}catch(e){}});musicNodes=null;}
-    musicTheme=null; if(musicGain)musicGain.gain.value=0;}
-  else{ac();setMusicTheme(currentMusicKey());}
+  if(musicMuted){
+    // silence everything immediately (current track kept so unmute can resume it)
+    if(musicCur){ try{musicCur.el.pause();}catch(e){} musicCur.gain=0; musicCur.el.volume=0; }
+    musicFades.forEach(f=>{try{f.el.pause();f.el.currentTime=0;}catch(e){}}); musicFades=[];
+  }else{
+    const key=currentMusicKey();
+    if(!musicCur||musicCur.key!==key){ musicTheme=null; setMusicTheme(key); }
+    else if(audioPrimed){ try{ const p=musicCur.el.play(); if(p&&p.catch)p.catch(()=>{}); }catch(e){} }
+  }
 }
 
 /* ---------------- hybrid asset pipeline ---------------------------
@@ -406,7 +392,16 @@ const ASSETS={
 const keys={};
 let confirmResolver=null;
 let audioPrimed=false;
-function primeAudio(){if(!audioPrimed){audioPrimed=true;ac();setMusicTheme(currentMusicKey());}}
+function primeAudio(){
+  if(audioPrimed)return;
+  audioPrimed=true;
+  ac(); // unlock the SFX AudioContext on the same gesture
+  if(musicMuted)return;
+  // a track may already be selected (musicCur) but not yet played because we weren't
+  // primed — start it now; otherwise select+start the track for the current view.
+  if(!musicCur||musicCur.key!==currentMusicKey()){ musicTheme=null; setMusicTheme(currentMusicKey()); }
+  else{ try{ const p=musicCur.el.play(); if(p&&p.catch)p.catch(()=>{}); }catch(e){} }
+}
 /* ---------- pause / settings menu ---------- */
 let paused=false, TEXT_SPEED=16; // TEXT_SPEED = ms/char in the dialog typewriter
 function setTextSpeed(ms){ TEXT_SPEED=ms; try{localStorage.setItem('enochTextSpeed',String(ms));}catch(e){}
@@ -2091,11 +2086,18 @@ function updateObjectiveChip(){
 function ensurePostgameState(){
   if(!F.writs) F.writs={};
   if(!F.companions) F.companions={};
+  // Sprint 4.1: completing The Last Hunger should always make Abel available as the
+  // first postgame witness. Older saves may have completed the Writ before this rule,
+  // so backfill the companion unlock here without changing the recorded judgment.
+  if(F.writs&&F.writs.lastHunger&&F.writs.lastHunger.outcome&&!F.companions.abel) F.companions.abel=true;
   if(!F.judgments) F.judgments={};
   if(!F.names) F.names={};
   // The writ currently being run as an expedition (Mystery-Dungeon-style descent), or null.
   // Use an explicit 'in' check so an already-set value (incl. a future falsy id) is never wiped.
   if(!('activeWrit' in F)) F.activeWrit=null;
+  // The postgame witness travelling with Metatron (a COMPANIONS id, e.g. 'abel'), or null.
+  // Explicit 'in' check → never clobbers a set value; old-save safe (defaults to no witness).
+  if(!('activeCompanion' in F)) F.activeCompanion=null;
 }
 const WRITS={
   lastHunger:{
@@ -2167,6 +2169,39 @@ function endWritMission(id,outcome){
 function lastHungerActive(){ return !!F.postgame && isWritMissionActive('lastHunger'); }
 function lastHungerClueCount(){ return writState('lastHunger').clues.length; }
 function lastHungerReady(){ const def=WRITS.lastHunger; return lastHungerActive() && lastHungerClueCount()>=(def.requiredClues||3); }
+/* ===== Expedition enemies (Sprint 3B) =================================================
+   Visible on-map foes inside a Writ expedition's descent maps. Purely declarative; they
+   reuse the existing ENEMIES battle keys (no new art / combat) and are gated on the owning
+   writ being the *active* mission, so the campaign Sheol never sees them. Bumping into a live
+   one triggers the normal battle; winning records its id in writState(writ).defeatedEnemies
+   so it stays gone across save/reload. They are optional pressure — fleeing/losing leaves the
+   foe (retryable) and none of them gate completion. Placed on open floor off the props/clues/
+   warps, on/near the central corridor (row y=5) so they're felt but can be walked around. */
+const EXPEDITION_ENEMIES=[
+ {id:'rec_shade', writ:'lastHunger', map:'sheolRecords', x:8,  y:5, key:'shade', pal:'soul', face:'down',
+   note:'A shade peels off the rows of name-jars and drifts to bar your way.'},
+ {id:'gna_beast', writ:'lastHunger', map:'sheolGnawed',  x:8,  y:5, key:'beast', pal:'ohya', face:'left',
+   note:'Something low and wet uncoils from the bite-marks and rounds on you.'},
+ {id:'gna_shade', writ:'lastHunger', map:'sheolGnawed',  x:12, y:7, key:'shade', pal:'soul', face:'down',
+   note:'A second shade gnaws at the edge of the hollow. It notices you.'},
+ {id:'hun_spawn', writ:'lastHunger', map:'sheolHunger',  x:8,  y:5, key:'spawn', pal:'ohya', face:'left',
+   note:'A hungering spawn of the Pit drops into the corridor, blocking the deep.'},
+];
+// Lazily-initialised per-writ list of defeated enemy ids (old saves lack the field).
+function writDefeatedEnemies(writId){ const w=writState(writId); if(!Array.isArray(w.defeatedEnemies))w.defeatedEnemies=[]; return w.defeatedEnemies; }
+function expEnemyDefeated(e){ return writDefeatedEnemies(e.writ).includes(e.id); }
+// Live = its writ is the active mission, the writ isn't already judged, and it isn't yet felled.
+function expEnemyLive(e){ return !!F.postgame && isWritMissionActive(e.writ) && !writState(e.writ).outcome && !expEnemyDefeated(e); }
+function expEnemyAt(map,x,y){ return EXPEDITION_ENEMIES.find(e=>e.map===map&&e.x===x&&e.y===y&&expEnemyLive(e)); }
+function markExpEnemyDefeated(e){ const arr=writDefeatedEnemies(e.writ); if(!arr.includes(e.id))arr.push(e.id); if(!cutscene)saveGame(); }
+// Walking into a live foe starts the normal battle; a win removes it permanently (a flee/loss leaves it).
+function engageExpEnemy(e){
+  runScript(async()=>{
+    if(e.note)await note(e.note);
+    const r=await startBattle(e.key);
+    if(r==='win')markExpEnemyDefeated(e);
+  });
+}
 /* Standard clue discovery: shows the testimony (as a named line if `sayName`, else narration),
    records it once, reports progress, and flips the writ to 'confronted' on the final clue.
    Re-reading a found clue re-shows its flavor but never double-counts. Does NOT complete the writ. */
@@ -2196,6 +2231,23 @@ const COMPANIONS={
   abel:{id:'abel', name:'Abel', title:'First Witness of the Grave', role:'Witness, righteousness, testimony', combat:'First Blood Cries Out', passive:'Strengthens judgment against murderers and devourers.'},
   redeemedNephilim:{id:'redeemedNephilim', name:'Redeemed Nephilim', title:'The Hunger Leashed', role:'Tank, brute force, risky mercy', combat:'Leashed Hunger', passive:'Can bear wounds for Metatron, but may increase corruption risk.'}
 };
+/* ===== Active witness / companion layer (Sprint 4) ====================================
+   A minimal postgame "witness" slot: a redeemed companion (currently only Abel, freed by the
+   Redeem judgment of The Last Hunger) can travel with Metatron on expeditions. State is the
+   single id in F.activeCompanion (seeded null by ensurePostgameState → old-save safe; persisted
+   under F by saveGame). This is intentionally NOT P.party — the campaign Uriel battle-ally path
+   and follower are untouched. The witness only shows in postgame (Metatron) as a follower and a
+   small, capped combat assist; it never affects the main campaign (F.activeCompanion stays null
+   until set from the postgame Ledger). */
+function companionUnlocked(id){ ensurePostgameState(); return !!(F.companions&&F.companions[id]); }
+function unlockedCompanions(){ ensurePostgameState(); return Object.keys(COMPANIONS).filter(companionUnlocked); }
+function activeCompanionIs(id){ ensurePostgameState(); return F.activeCompanion===id; }
+function activeCompanionDef(){ ensurePostgameState(); return F.activeCompanion?COMPANIONS[F.activeCompanion]:null; }
+function setActiveCompanion(id){ ensurePostgameState(); if(!companionUnlocked(id))return false; F.activeCompanion=id; sfx.holy(); if(!cutscene)saveGame(); updateHUD(); return true; }
+function dismissCompanion(){ ensurePostgameState(); F.activeCompanion=null; sfx.blip(); if(!cutscene)saveGame(); updateHUD(); }
+// Abel walks beside Metatron only in postgame, when chosen — never during the campaign (Uriel's
+// follower path is gated on P.party + !F.metatron and is independent of this).
+function witnessFollowerActive(){ return !!F.postgame && activeCompanionIs('abel'); }
 function currentObjective(){
   if(F.postgame){
     ensurePostgameState();
@@ -2397,11 +2449,35 @@ function toggleStats(){
       if(active){
         const ready = def.requiredClues ? (w.clues.length>=def.requiredClues) : true;
         h+=`<div class="flavor" style="opacity:.85">${ready?'All testimony gathered — descend to the <b>Hunger Pit</b> and confront The Last Hunger.':'Descend through the <b>Lower Records</b> and the <b>Gnawed Hollow</b>. Gather testimony from Abel, the gnawed record, and the bite marks.'}</div>`;
+        const foes=EXPEDITION_ENEMIES.filter(e=>e.writ===id);
+        if(foes.length){
+          const felled=writDefeatedEnemies(id).length;
+          h+=`<div class="srow"><span>Hollow cleared</span><b>${felled} / ${foes.length} foes</b></div>`;
+        }
       } else if(!w.outcome&&(w.status==='open'||w.status==='tracked'||w.status==='confronted')&&def.entryMap&&view==='world')
         h+=`<button onclick="beginWritFromLedger('${id.replace(/'/g,"\\'")}')">${w.status==='confronted'?'Resume Expedition':'Begin Expedition'}</button>`;
       h+=`</div>`;
     }
     if(!anyWrit)h+=`<div class="arts">No writs are open. The ledger waits.</div>`;
+    /* Witnesses — redeemed companions that may travel with Metatron on expeditions (Sprint 4). */
+    const wits=unlockedCompanions();
+    h+=`<h3 style="margin-top:8px">Witnesses</h3>`;
+    const active=activeCompanionDef();
+    h+=`<div class="srow"><span>Travelling with</span><b>${active?active.name:'None'}</b></div>`;
+    if(!wits.length){
+      h+=`<div class="arts">No witness yet walks beside you. Redeem a soul from judgment, and it may bear witness on the descents.</div>`;
+    } else {
+      for(const id of wits){ const c=COMPANIONS[id]; const isAct=activeCompanionIs(id);
+        h+=`<div class="objective"><div class="objectiveTitle">${c.name} · ${c.title}${isAct?' · <span style="color:#e8c270">Witness</span>':''}</div>`;
+        h+=`<div class="flavor">${c.passive}</div>`;
+        h+=`<div class="srow"><span>In the deep</span><b>${c.combat}</b></div>`;
+        if(view==='world'){
+          if(isAct) h+=`<button onclick="dismissWitnessFromLedger()">Dismiss Witness</button>`;
+          else h+=`<button onclick="setWitnessFromLedger('${id.replace(/'/g,"\\'")}')">Travel with ${c.name}</button>`;
+        }
+        h+=`</div>`;
+      }
+    }
   }
   h+=`<h3 style="margin-top:8px">Provisions</h3>`;
   for(const it in P.items){ if(P.items[it]>0)
@@ -2436,6 +2512,10 @@ window.beginWritFromLedger=function(id){
     }
   });
 };
+/* Witness selection from the Scribe's Ledger (Sprint 4). Sets/clears F.activeCompanion, then
+   re-renders the open panel (toggleStats twice = close+open, same idiom as useItemWorld). */
+window.setWitnessFromLedger=function(id){ if(view!=='world')return; setActiveCompanion(id); toggleStats(); toggleStats(); };
+window.dismissWitnessFromLedger=function(){ if(view!=='world')return; dismissCompanion(); toggleStats(); toggleStats(); };
 function gainXP(n){
   P.xp+=n; let leveled=false;
   while(P.xp>=P.level*20){ P.xp-=P.level*20; P.level++; leveled=true;
@@ -2525,6 +2605,15 @@ function battleMenuPick(){
       b.onclick=()=>{m.style.display='none';res({kind:'ally'});};
       m.appendChild(b);
     }
+    // Postgame witness assist (Sprint 4): Abel testifies, dealing modest Holy damage and laying
+    // the foe's nature bare (expose). Separate from Uriel's button; shares the allyCD throttle so
+    // it can't be spammed. Only ever appears in postgame (F.activeCompanion is null in the campaign).
+    if(witnessFollowerActive()&&B.allyCD<=0){
+      const b=document.createElement('button'); b.className='moveBtn t-Holy';
+      b.innerHTML="Abel: First Blood Cries Out<small>Witness · Holy</small>";
+      b.onclick=()=>{m.style.display='none';res({kind:'abelAlly'});};
+      m.appendChild(b);
+    }
     for(const it of ['Manna','Hyssop']){
       if(P.items[it]>0){
         const b=document.createElement('button'); b.className='moveBtn t-sys';
@@ -2577,6 +2666,14 @@ async function startBattle(key,opts={}){
       const d=Math.round((12+P.level*.5)*eff('Holy',B.def.type));
       B.hp-=d; floatDmg(d,'#fff');
       await bmsg('<b>Uriel</b> descends like the first hour of morning — <b>'+d+'</b>!');
+    }
+    else if(act.kind==='abelAlly'){
+      // Modest, capped assist: ~Uriel-lite damage on a longer cooldown, plus expose (the witness
+      // lays the murderer's nature bare). Deliberately weaker than Uriel and never a guaranteed kill.
+      B.allyCD=3; sfx.holy(); bParticles('white'); shake(4,260);
+      const d=Math.round((8+P.level*.4)*eff('Holy',B.def.type));
+      B.hp-=d; floatDmg(d,'#ffe9a8'); B.exposed=2;
+      await bmsg('<b>Abel</b> lifts his testimony from the dust — the first blood cries out, and the deep is laid bare — <b>'+d+'</b>! Its nature is exposed.');
     }
     else{
       const mv=MOVES[act.key];
@@ -3058,6 +3155,9 @@ const PROPS=[
  {map:'sheol',x:6,y:11,t:'stalag',tall:1,solid:1},{map:'sheol',x:14,y:3,t:'stalag',tall:1,solid:1},
  {map:'sheol',x:2,y:3,t:'brazier',tall:1,solid:1},{map:'sheol',x:19,y:10,t:'brazier',tall:1,solid:1},
  {map:'sheol',x:10,y:7,t:'rubble'},{map:'sheol',x:16,y:9,t:'rubble'},
+ // Postgame Writ-hub marker at the mouth of Sheol — the Ledger-fire where Writs are read
+ // (hidden during the campaign; the inspect at the same tile anchors the postgame loop).
+ {map:'sheol',x:2,y:9,t:'brazier',tall:1,solid:1,vis:()=>F.postgame},
  // Postgame marker where Ohya stood — the descent begins here (hidden during the campaign).
  {map:'sheol',x:17,y:7,t:'wound',tall:1,vis:()=>F.postgame},
  // Last Hunger descent props (only seen inside the writ-gated maps). Nothing solid sits on the
@@ -3077,7 +3177,11 @@ const PROPS=[
  {map:'dudael',x:4,y:8,t:'rubble'},{map:'dudael',x:13,y:4,t:'rubble'},
  {map:'dudael',x:11,y:8,t:'skull'},{map:'dudael',x:5,y:3,t:'skull'},
 ];
-function propSolidAt(map,x,y){return PROPS.some(p=>p.map===map&&p.x===x&&p.y===y&&p.solid&&(!p.vis||p.vis()));}
+// A prop with an optional `vis` predicate is only present when it returns truthy
+// (used by postgame-only markers like the Ohya wound). Centralized so the three
+// call sites — collision + both draw loops — can never drift apart.
+function propVisible(p){ return !p.vis || p.vis(); }
+function propSolidAt(map,x,y){return PROPS.some(p=>p.map===map&&p.x===x&&p.y===y&&p.solid&&propVisible(p));}
 function drawProp(p,time){
   // brazier embers & rune glimmer drift up in world space (48px coords)
   if(p.t==='brazier'&&Math.random()<0.05)
@@ -3612,6 +3716,35 @@ const INSPECTS=[
  {map:'sheol',x:14,y:3,run:async()=>{
    await note('Stone teeth grown down from a roof you cannot see: the underside of the mountains, the foundations men build their certainties upon. From beneath, they look less like roots than like the bars of a cage.');
  }},
+ /* ----- Postgame Writ hub (Sprint 5). The Ledger-fire at the mouth of Sheol anchors the
+    Writs of Judgment loop: it explains the Ledger and gives state-aware guidance (no Writ →
+    begin one; The Last Hunger active → progress; sealed → acknowledge + point ahead). All
+    postgame-gated; during the campaign the prop is hidden and this reads as plain scenery. ----- */
+ {map:'sheol',x:2,y:9,run:async()=>{
+   if(!F.postgame){
+     await note('Cold fire bedded among the dead, throwing grey attention instead of heat. Nothing is written here yet.');
+     return;
+   }
+   ensurePostgameState();
+   const w=writState('lastHunger'), lh=WRITS.lastHunger;
+   await note('<b>The Ledger-fire of Metatron.</b> You set this cold flame at the mouth of the hollow places yourself, to mark where the <b>Writs of Judgment</b> are read. Open the Scribe\'s Ledger (<b>C</b>) to take up a Writ, descend, and bring the matter to judgment.');
+   if(witnessFollowerActive())
+     await say('ABEL','I will keep the fire while you read, Scribe. The dead watch better when one of them is awake.');
+   if(isWritMissionActive('lastHunger')){
+     const need=lh.requiredClues||3, have=w.clues.length;
+     const foes=EXPEDITION_ENEMIES.filter(e=>e.writ==='lastHunger');
+     const cleared=foes.filter(expEnemyDefeated).length;
+     const next = have<need
+       ? 'Descend east through the Lower Records and the Gnawed Hollow and gather the testimony that remains.'
+       : (w.outcome?'It is already sealed.':'The testimony is complete — descend to the Hunger Pit and confront The Last Hunger.');
+     await note('<b>Writ in hand: The Last Hunger.</b> Testimony <b>'+have+' / '+need+'</b>. Hollow-things put down <b>'+cleared+' / '+foes.length+'</b>. '+next);
+   } else if(w.outcome){
+     const verdict={bound:'You bound it beneath the graves.',destroyed:'You unmade it with the Name placed in you.',redeemed:'You gave it one name and commanded it to sleep under witness.',sealed:'You sealed it in the Ledger, known and imprisoned.'}[w.outcome]||'Judgment was rendered.';
+     await note('<b>The Last Hunger is sealed.</b> '+verdict+' The first Writ is written; the Ledger is patient. When another hunger stirs beneath the world, this fire will mark its reading.');
+   } else {
+     await note('No Writ is open in your hand. Press <b>C</b> to read the Ledger of Judgment and begin a Writ — <i>The Last Hunger</i> waits to be taken up.');
+   }
+ }},
  /* ----- The Last Hunger (postgame Writ). The expedition is now a descent across writ-only deeper
     Sheol maps: the wound marker (sheol 17,7) shows where Ohya stood + where the descent begins;
     clues live in sheolRecords/sheolGnawed; the confrontation is in sheolHunger. Clue inspects use
@@ -3733,7 +3866,9 @@ function updateWorld(dt){
       P.facing=d;
       const dx={up:0,down:0,left:-1,right:1}[d], dy={up:-1,down:1,left:0,right:0}[d];
       const nx=P.x+dx, ny=P.y+dy;
-      if(walkable(P.map,nx,ny)){
+      const foe=expEnemyAt(P.map,nx,ny); // visible expedition enemy → fight on contact, don't step onto it
+      if(foe){ engageExpEnemy(foe); }
+      else if(walkable(P.map,nx,ny)){
         follower={x:P.x,y:P.y};
         P.x=nx;P.y=ny;P.moving=true;P.mt=0;sfx.step();
       }
@@ -3789,7 +3924,7 @@ function drawWorld(time){
   }
   // flat props (ground decals) under everything that walks
   for(const pr of PROPS){
-    if(pr.map!==P.map||pr.tall||(pr.vis&&!pr.vis()))continue;
+    if(pr.map!==P.map||pr.tall||!propVisible(pr))continue;
     drawProp(pr,time);
   }
   // depth-sorted entities: npcs, follower, player, tall props
@@ -3812,16 +3947,30 @@ function drawWorld(time){
     if(n.pal==='azazel'&&!n.big)opts.glow='#3a2008';
     ents.push({y:n.y, draw:()=>drawChar(n.pal,n.face||'down',n.x*TS,n.y*TS-(opts.scale?30:0),opts)});
   }
+  // visible expedition enemies (Sprint 3B) — only on this writ-gated descent map
+  for(const e of EXPEDITION_ENEMIES){
+    if(e.map!==P.map||!expEnemyLive(e))continue;
+    const opts={glow:'#c0303a'};
+    if(e.pal==='soul'){opts.alpha=.66;opts.glow='#9ab8e0';opts.bob=Math.sin(time/480+e.x)*2.5;}
+    ents.push({y:e.y, draw:()=>drawChar(e.pal,e.face||'down',e.x*TS,e.y*TS,opts)});
+  }
   if(P.party.includes('Uriel')&&!F.metatron){
     ents.push({y:follower.y, draw:()=>drawChar('uriel',P.facing,follower.x*TS,follower.y*TS,
       {glow:'#ffe9a8',halo:true,alpha:.92,frame:wfr('uriel')})});
+  }
+  // Postgame witness follower (Sprint 4) — Abel walks behind Metatron when chosen as witness.
+  // Independent of the Uriel path above (postgame is F.metatron, so Uriel never draws here);
+  // reuses the shared `follower` trail tile + the soul ghost palette. No new art.
+  else if(witnessFollowerActive()){
+    ents.push({y:follower.y, draw:()=>drawChar('soul',P.facing,follower.x*TS,follower.y*TS,
+      {glow:'#9ab8e0',alpha:.72,bob:Math.sin(time/500+follower.x)*2,frame:wfr('soul')})});
   }
   const bob=P.moving?Math.sin(P.mt*Math.PI)*-2:0;
   const palKey=F.metatron?'metatron':'enoch';
   ents.push({y:iy, draw:()=>drawChar(palKey,P.facing,ix*TS,iy*TS,
     {bob,frame:wfr(palKey),glow:F.metatron?'#ffe9a8':null,halo:F.metatron})});
   for(const pr of PROPS){
-    if(pr.map!==P.map||!pr.tall||(pr.vis&&!pr.vis()))continue;
+    if(pr.map!==P.map||!pr.tall||!propVisible(pr))continue;
     ents.push({y:pr.y, draw:()=>drawProp(pr,time)});
   }
   ents.sort((a,b)=>a.y-b.y).forEach(e=>e.draw());
