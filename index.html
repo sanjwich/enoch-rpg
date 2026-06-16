@@ -3202,6 +3202,70 @@ const NPCS=[
   }},
  {id:'azazelD',map:'dudael',x:8,y:3,pal:'azazel',face:'down',vis:()=>!F.azazelBound,
   talk:async()=>{await cs_finalBattle();}},
+ /* ===== POSTGAME / METATRON-MODE AMBIENT NPCS ============================================
+    Lore/flavor witnesses for the postgame, when Enoch walks the world as Metatron. Every one
+    is gated on vis:()=>F.metatron, so they are INVISIBLE during the campaign and on any old
+    save (F.metatron is set only at endGame). They depend on no new state — only the existing
+    F.metatron and F.activeCompanion (read via witnessFollowerActive(), which returns false
+    safely when Abel is not travelling) — so they are entirely old-save-safe. None set flags,
+    shift stats, start battles, or gate progression; they only speak. They sit on validated
+    walkable tiles that avoid existing NPCs, solid props, warps, chests, inspects and triggers.
+    The folk address Enoch by his new station — Metatron, Scribe of the Presence, Lesser YHWH —
+    with wary reverence. Several have a conditional line when Abel walks with him.
+    Note: heaven/throne are cutscene-only islands today (no walkable warp from the earth/sheol
+    cluster), so heavenHost/throneUriel are placed for tone + future writ-board fast-travel; the
+    Earth and Sheol witnesses are the reachable population in postgame. ----- */
+ // --- Earth (Jared's Valley after the waters): remnant souls + a watching angel ---
+ {id:'pgValeSoul',map:'earth',x:7,y:2,pal:'soul',face:'down',vis:()=>F.metatron,
+  talk:async()=>{
+    await say('A SOUL OF THE DROWNED VALLEY','Metatron. We knew you when you were only Enoch, who counted our stars and wrote down our small names. The water took the valley — but it could not take what you had already written. We wait quiet now, and remembered. That is enough.');
+    if(witnessFollowerActive())
+      await say('ABEL','The first blood greets the last witness. Walk gently here, Scribe — this ground remembers being a home.');
+    else if(companionUnlocked('abel'))
+      await say('A SOUL OF THE DROWNED VALLEY','Word reaches even the drowned: you gave the <b>first blood</b> a second name and bade it rest. If Abel can be redeemed out of the pit, then perhaps a small valley can be remembered out of the water. Carry him gently, Scribe.');
+  }},
+ {id:'pgValeElder',map:'earth',x:4,y:4,pal:'elder',face:'right',vis:()=>F.metatron,
+  talk:async()=>{
+    await say('THE SHADE OF AN ELDER','Is it truly you, scribe of Jared\'s line? They robed you in a new name and seventy tongues, and still you walk the old fields. <i>Lesser YHWH</i>, they call you now. Be gentle with that title, son — it is a borrowed coat, and the cold beneath it belongs to the Most High alone.');
+  }},
+ {id:'pgValeWoman',map:'earth',x:16,y:4,pal:'edna',face:'down',vis:()=>F.metatron,
+  talk:async()=>{
+    await say('A WOMAN\'S SHADE','I kept a garden once, beside a house that is only water now. The hyssop grew wild after. Metatron — when you write the ledger of the world, leave a line for the ordinary green things. Someone tended them. Someone loved them. That, too, was righteousness.');
+  }},
+ {id:'pgValeBoy',map:'earth',x:17,y:11,pal:'boy',face:'down',vis:()=>F.metatron,
+  talk:async()=>{
+    await say('THE SHEPHERD BOY\'S SPIRIT','You went up the mountain because I begged you to see. <i>(He smiles, unafraid now.)</i> I am not cold here, Scribe. The goats are with me. Tell heaven a herdsboy kept his flock to the very end — and that the end was not the end after all.');
+    if(witnessFollowerActive())
+      await say('ABEL','Two shepherds, then — one of beasts, one of brothers. The Scribe keeps better company than he knows.');
+  }},
+ {id:'pgValeWatcher',map:'earth',x:8,y:15,pal:'sentinel',face:'up',vis:()=>F.metatron,
+  talk:async()=>{
+    await say('A SENTINEL OF THE EMPTIED VALLEY','Prince of the Presence. I am set to keep this place until the waters remember their bounds. None pass here but you, who are written above and below. Walk where you will, Metatron — the field is yours to grieve, and yours to record.');
+  }},
+ // --- Sheol (the hollow places, after the campaign): keepers and freed dead ---
+ {id:'pgHollowKeeper',map:'sheol',x:4,y:8,pal:'soul',face:'right',ghost:true,vis:()=>F.metatron,
+  talk:async()=>{
+    await say('A KEEPER OF THE HOLLOW RECORDS','You set your cold fire at the mouth, Scribe, and the dead sleep deeper for it. I tally those who are remembered now — the list lengthens, and the silence shrinks. Read your Writs above; we will keep the count below.');
+    if(witnessFollowerActive())
+      await say('ABEL','Count me among the waking, brother of the deep. I walk at the Scribe\'s side now.');
+  }},
+ {id:'pgFreedSoul',map:'sheol',x:10,y:3,pal:'soul',face:'down',ghost:true,vis:()=>F.metatron,
+  talk:async()=>{
+    await say('A FREED SOUL','Once I feared the second death — the deeper down, where the hunger fed on what came to rest. You closed that mouth, Metatron. Now when I sink, I sink only into rest. Blessed be the hand that writes mercy into the ledger of the pit.');
+  }},
+ {id:'pgDeadScribe',map:'sheol',x:16,y:6,pal:'elder',face:'left',ghost:true,vis:()=>F.metatron,
+  talk:async()=>{
+    await say('AN OLD SCRIBE AMONG THE DEAD','I kept books in the living years, and I keep them still — names, debts, the hour each soul came down. You out-wrote us all, Enoch-that-was. <i>Lesser YHWH.</i> When another hunger stirs in the dark, my tallies will be ready. The dead make patient clerks.');
+  }},
+ // --- Heaven / Throne (placed for tone + future fast-travel; see header note) ---
+ {id:'pgHeavenHost',map:'heaven',x:10,y:7,pal:'sentinel',face:'down',vis:()=>F.metatron,
+  talk:async()=>{
+    await say('A SENTINEL OF THE HOST','Metatron, Prince of the Presence — the banners carry your name among the seventy now, and the thread does not unravel. We stood ten thousand years without you and were not complete. Go where the Throne sends you; the host keeps your station warm.');
+  }},
+ {id:'pgThroneUriel',map:'throne',x:9,y:8,pal:'uriel',face:'down',vis:()=>F.metatron,
+  talk:async()=>{
+    await say('URIEL, ANGEL OF THE LUMINARIES','Well met before the Glory, Scribe of the Presence. You learned the courses of the sun from me — now you keep records I am not permitted to read. Strange, that the seventh from Adam should sit nearer the fire than I. <i>(He bows, and gladly.)</i> Carry your Writs well, Metatron.');
+  }},
 ];
 const CHESTS=[
  {map:'heaven',x:2,y:16,item:{Manna:2},name:'a cache of manna',got:false},
@@ -3228,6 +3292,10 @@ const PROPS=[
  {map:'earth',x:6,y:3,t:'bush',solid:1},{map:'earth',x:16,y:11,t:'bush',solid:1},
  {map:'earth',x:2,y:14,t:'bush',solid:1},{map:'earth',x:15,y:2,t:'bush',solid:1},
  {map:'earth',x:18,y:5,t:'lily'},{map:'earth',x:19,y:6,t:'lily'},
+ // Shepherd-boy identifiers: a visible sheep beside the living boy, and a pale memory-sheep
+ // beside his postgame spirit so the player reads him instantly at both story phases.
+ {map:'earth',x:13,y:5,t:'sheep',vis:()=>!F.fallen&&F.intro&&!F.metatron},
+ {map:'earth',x:18,y:11,t:'sheep',ghost:1,vis:()=>F.metatron},
  {map:'earth',x:21,y:2,t:'rubble'},
  {map:'hermon',x:2,y:2,t:'pillar',tall:1,solid:1},{map:'hermon',x:11,y:2,t:'pillar',tall:1,solid:1},
  {map:'hermon',x:8,y:4,t:'rubble'},{map:'hermon',x:3,y:10,t:'rubble'},{map:'hermon',x:9,y:15,t:'rubble'},
@@ -3297,6 +3365,25 @@ function drawProp(p,time){
     ctx.beginPath();ctx.arc(sx+13,sy+15+bobL,3,0,7);ctx.fill();
     ctx.fillStyle='#e8a8c8';
     ctx.beginPath();ctx.arc(sx+13,sy+14+bobL,1.6,0,7);ctx.fill();
+    break;}
+  case 'sheep':{
+    const ghost=!!p.ghost, bobS=Math.sin(time/900+p.x*1.7)*0.8;
+    ctx.globalAlpha=ghost?.66:1;
+    ctx.fillStyle=ghost?'rgba(130,178,230,0.20)':'rgba(0,0,0,0.22)';
+    ctx.beginPath();ctx.ellipse(sx+16,sy+27,12,3.8,0,0,7);ctx.fill();
+    if(ghost){ctx.save();ctx.shadowColor='#9ab8e0';ctx.shadowBlur=8;}
+    ctx.fillStyle=ghost?'#dbeeff':'#e8e1cf';
+    [[10,18,4.8],[15,16,5.5],[20,18,4.8],[13,21,5.2],[19,21,5.0]].forEach(c=>{
+      ctx.beginPath();ctx.arc(sx+c[0],sy+c[1]+bobS,c[2],0,7);ctx.fill();});
+    ctx.fillStyle=ghost?'#bdd8f2':'#cfc4b0';
+    ctx.beginPath();ctx.ellipse(sx+24,sy+18+bobS,4.8,5.8,0.25,0,7);ctx.fill(); // head
+    ctx.fillStyle=ghost?'#8fb5d8':'#7a6048';
+    ctx.beginPath();ctx.ellipse(sx+27,sy+17+bobS,2.3,1.3,-0.3,0,7);ctx.fill(); // ear
+    ctx.fillStyle=ghost?'#5f86b4':'#241a10';
+    ctx.fillRect(sx+25,sy+17+bobS,1.5,1.5);
+    ctx.fillStyle=ghost?'#9ab8e0':'#6a4a32';
+    ctx.fillRect(sx+11,sy+24+bobS,2,5);ctx.fillRect(sx+20,sy+24+bobS,2,5);
+    if(ghost)ctx.restore();
     break;}
   case 'rubble':{
     ctx.fillStyle='rgba(0,0,0,0.18)';
