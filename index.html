@@ -1939,6 +1939,10 @@ let P={map:'earth',x:5,y:10,fx:5,fy:10,facing:'down',moving:false,mt:0,
 let checkpoint={map:'earth',x:5,y:10};
 let encCooldown=0; // QA-006: steps of guaranteed safety before wild encounters resume
 let camX=0,camY=0, shakeT=0, shakeA=0;
+// Lighting v1 state (Canvas 2D, NOT raycast): screen translate for view-space
+// light placement + the current player/follower light anchors, refreshed each
+// world frame in drawWorld() and consumed by lightingPass()/collectLights().
+let lightTX=0,lightTY=0,plPX=null,plPY=0,flPX=0,flPY=0,flKind=null;
 let particles=[], follower={x:5,y:11}, followerPrev={x:5,y:11};
 function setFollowerPos(x,y){ follower={x,y}; followerPrev={x,y}; }
 const era=()=>F.corruption && P.map==='earth';
@@ -3068,6 +3072,81 @@ const NPCS=[
       await say('AZAZEL','Still clean-handed? Astonishing. Go on, then — climb to your masters. Ask them about the souls under the ground. Watch the holy faces very carefully when you do.');
     }
   }},
+ /* ----- Ambient valley folk (Jared's Valley). Flavor/lore only — none gate progression,
+    none are required to talk to. Each reads the world state through existing flags so the
+    valley shifts from peaceful → fearful (F.corruption) → awed (F.petitionDone/F.soulsHeard).
+    All hidden in postgame Metatron mode (vis includes !F.metatron). Existing palettes only. ----- */
+ {id:'potterE',map:'earth',x:3,y:8,pal:'elder',face:'right',vis:()=>!F.metatron,
+  talk:async()=>{
+    if(!F.corruption)await say('POTTER — JABAL','Sit, scribe — the wheel keeps its own sabbath. I have thrown cups for three generations of your house. Your grandfather Jared liked them thin enough to see the wine through. A steady hand, your line. Heaven help us all if it ever shakes.');
+    else if(!F.petitionDone)await say('JABAL','I shape the clay and it cracks in the kiln now — every batch, since the strangers came down. As if the earth itself has lost the will to hold a shape. Even my hands forget the wheel when their giants pass on the road.');
+    else await say('JABAL','They say you carry the dead\'s grievance up the mountain of God. Take a cup of mine. If the Most High asks what we were before the ruin — tell Him some of us only ever wanted to make a thing that holds water.');
+  }},
+ {id:'weaverE',map:'earth',x:3,y:11,pal:'edna',face:'down',vis:()=>!F.metatron,
+  talk:async()=>{
+    if(!F.corruption)await say('WEAVER — NAAMAH','Mind the threads on the line — still wet with woad. Blue for the bridegrooms this season; half the valley is marrying. Tell your Edna her loom-weights are mended and waiting. A valley that weaves is a valley at peace, my mother used to say.');
+    else if(!F.soulsHeard)await say('NAAMAH','I weave and the patterns come out wrong — knots I never tied, faces in the cloth. The sons of the Watchers want garments dyed in colors that have no name. I gave them grey. I will give the hungry ones nothing fine to be buried in.');
+    else await say('NAAMAH','Go on to the heights, then, and carry our names sewn into your hem. A weaver knows: one cut thread and the whole cloth remembers. Let the Most High remember us by you.');
+  }},
+ {id:'waterE',map:'earth',x:15,y:6,pal:'boy',face:'left',vis:()=>!F.metatron,
+  talk:async()=>{
+    if(!F.corruption)await say('WATER CARRIER — KEZIA','The spring runs sweet this morning — eight trips already and the sun not yet high. Drink, scribe, you look parched as a summer field. Mother says a girl who carries water carries the whole house on her hip. The well is where the valley keeps its gossip.');
+    else if(!F.petitionDone)await say('KEZIA','I don\'t go to the spring after dark anymore. The giants drink it dry and what trickles back tastes of iron. And there are <i>shapes</i> at the water\'s edge that drink and never fill. I carry from the cistern now, and I run.');
+    else await say('KEZIA','Is it true you\'ll stand before the Throne? Then ask Him for clean water, scribe. Just that. A valley can bear almost anything if the spring still runs sweet.');
+  }},
+ {id:'harvestE',map:'earth',x:4,y:14,pal:'edna',face:'up',vis:()=>!F.metatron,
+  talk:async()=>{
+    if(!F.corruption)await say('HARVEST WOMAN — SHELI','Barley\'s in, and the threshing floor is loud as a wedding. Glean what you like from the edges — the corners of the field are not ours to keep; your grandfather taught us that. A full barn and a kind law. What more does a valley need?');
+    else if(!F.soulsHeard)await say('SHELI','We reap and the giants take it from the floor before the chaff has flown. Then they eat the oxen. Then — forgive me for saying it aloud — they eat the men who drove the oxen. There will be no gleaning this year. There may be no one to glean.');
+    else await say('SHELI','You carry our hunger up to heaven, then. Tell Him the harvest was good, the year the sky broke. Tell Him we shared the corners of the field right up until the end.');
+  }},
+ {id:'goatherdE',map:'earth',x:8,y:10,pal:'boy',face:'right',vis:()=>!F.metatron,
+  talk:async()=>{
+    if(!F.corruption)await say('GOATHERD — ELON','Hi! Mind the billy, he butts strangers. Forty head and not one lost since spring — I sleep up on the slope under more stars than a man could ever write down. You count stars too, they say. Do you ever get to the end of them?');
+    else if(!F.petitionDone)await say('ELON','The goats won\'t climb the north slope now. They feel it before we do — they bolt, eyes white, from nothing a man can see. I lost nine head to what hunts by night. I sleep in the village now, and I still don\'t sleep.');
+    else await say('ELON','They say you walked where the goats won\'t go and came back. When you stand up among the lights you count — put in a word for a herdsman. Even the lost nine. They were good beasts.');
+  }},
+ {id:'midwifeE',map:'earth',x:10,y:8,pal:'edna',face:'down',vis:()=>!F.metatron,
+  talk:async()=>{
+    if(!F.corruption)await say('MIDWIFE — TIRZAH','Three born this week, all crying lustily, praise be. I caught your Methuselah, you know — came out <i>reaching</i> for something, that one. Long life in his grip, I said. I am old, scribe, and I have only ever pulled life toward the light. It is the best of all the trades.');
+    else if(!F.soulsHeard)await say('TIRZAH','The births now... I will not speak of all I have pulled into the light. The daughters of men carry the Watchers\' get, and what comes is too large, and too hungry, and it does not cry — it <i>feeds</i>. I have buried more mothers than I have caught children this season.');
+    else await say('TIRZAH','Go and tell Him — He who knit us in the dark — that His handiwork is being unmade. If any prayer of mine still reaches: let there be clean births again. Let a child cry, just cry, and reach for the light.');
+  }},
+ {id:'mournerE',map:'earth',x:3,y:13,pal:'edna',face:'down',vis:()=>F.corruption&&!F.metatron,
+  talk:async()=>{
+    if(!F.petitionDone)await say('A MOURNING MOTHER','Have you seen my Adah? Tall, with her father\'s laugh. The white ones took her up the mountain to be a bride of heaven — and a bride of heaven does not come home. I leave bread on the step each night. The crows take it. I tell myself it is her.');
+    else await say('THE MOURNING MOTHER','You are going up to where they came from. If you find my Adah among the lights — or even only her name — write it down and bring it back to me. A name is enough. A name, I could bury.');
+  }},
+ {id:'hunterE',map:'earth',x:8,y:12,pal:'elder',face:'right',vis:()=>!F.metatron,
+  talk:async()=>{
+    if(!F.corruption)await say('HUNTER — KENAN','Quiet — a stag\'s been crossing at the eastern rocks at dusk. I take one when the herd is fat and leave the does to their fawns. My father hunted this valley, and his. We take only what the land can spare. The land has always been generous.');
+    else if(!F.petitionDone)await say('KENAN','I do not hunt beasts anymore. The beasts are fled, or eaten. Now I set snares for worse things at the village edge — and I have learned which of them the snares will not hold. A hunter knows when he has become the smaller animal. I know it now.');
+    else await say('KENAN','You go up to hunt a quarry no spear can reach. Good — someone must. I will hold the eastern rocks as long as a man can. Bring back a verdict, scribe. That is the only kill that matters now.');
+  }},
+ {id:'apprenticeE',map:'earth',x:10,y:5,pal:'boy',face:'down',vis:()=>!F.metatron,
+  talk:async()=>{
+    if(!F.corruption)await say('SCRIBE\'S APPRENTICE — MAHALA','Master Enoch! I copied the whole luminary-table without a single blot — see? Well. One blot. You always say a scribe\'s patience is longer than his life. I want to count the stars and the days like you do. Will you teach me the names of the gates of the sun?');
+    else if(!F.soulsHeard)await say('MAHALA','I keep the records still, master — especially now. I write down each thing the giants take, each one who does not come home. Someone has to. You taught me: what is written cannot be wholly devoured. Is that still true? Tell me it is still true.');
+    else await say('MAHALA','They say the Most High has made <i>you</i> His scribe now. Then I am the apprentice of the apprentice of heaven! Go, master — I will keep the valley\'s books until you return. Every name. Every name, I promise.');
+  }},
+ {id:'childE',map:'earth',x:6,y:11,pal:'boy',face:'down',vis:()=>!F.metatron,
+  talk:async()=>{
+    if(!F.corruption)await say('A SMALL CHILD','Are you the man who stays up all night looking at the sky? Abba says you\'re the wisest man alive. Can the moon see us? Where does the sun sleep? Why is the night dark if there are SO many lights in it? You have to know — you know <i>everything!</i>');
+    else if(!F.petitionDone)await say('A SMALL CHILD','I\'m not supposed to be outside. The big ones come at night and Mama hides me in the grain jar. (Whispering.) Is it true you talk to the angels? Tell the nice ones to come back. Tell them we\'re sorry. We didn\'t do anything — but tell them we\'re sorry anyway.');
+    else await say('A SMALL CHILD','Mama says you\'re going up to GOD. Past the sky! (Eyes huge.) Will you wave? When you\'re all the way up there — will you wave, so I know which light is you?');
+  }},
+ {id:'watchmanE',map:'earth',x:14,y:3,pal:'elder',face:'up',vis:()=>!F.metatron,
+  talk:async()=>{
+    if(!F.corruption)await say('WATCHMAN — ZILLAH','I keep the north watch, scribe, though there\'s little to watch for but weather and wandering goats. Forty years on this rise. The worst I ever saw was a grass-fire in the dry season. Pray it stays so dull. Dull is the prayer of every watchman who ever lived.');
+    else if(!F.soulsHeard)await say('ZILLAH','I watch the mountain now, and the mountain watches back. There are lights on the summit that are not stars and keep no hours of stars. When they descend I sound no horn — what good is a horn against <i>that</i>? I only count them, and pray, and count them again.');
+    else await say('ZILLAH','So you\'ll climb into the very teeth of it. A watchman salutes you. I have stared at that summit until my eyes bled and learned nothing but fear. Go up and learn the rest — and tell heaven their post is sorely undermanned down here.');
+  }},
+ {id:'traderE',map:'earth',x:21,y:8,pal:'stranger',face:'left',vis:()=>!F.metatron,
+  talk:async()=>{
+    if(!F.corruption)await say('A TRAVELING TRADER','Salt from the bitter sea, scribe, and cedar oil, and a bronze mirror that\'d make your wife smile — though I hear she needs no help. I walk valley to valley, and yours is the kindest I cross. Folk here still bless a stranger before they bargain with him. Rare. Rarer every year.');
+    else if(!F.petitionDone)await say('THE TRADER','I am not stopping long. The roads between the valleys belong to the giants now; I move by day, hide by dark, and trade for nothing but bread. Yours is the last settlement on my circuit still standing. I came to say — I will not be coming again.');
+    else await say('THE TRADER','Word runs faster than my mule — they say you carry the whole world\'s complaint up to its Maker. Here, take the bronze mirror, no charge. Show heaven its own face. Maybe it has forgotten what it looks like from down here.');
+  }},
  {id:'semjaza',map:'hermon',x:6,y:7,pal:'semjaza',face:'down',
   vis:()=>F.corruption&&!F.petitionDone,
   talk:async()=>{await cs_semjaza();}},
@@ -3905,6 +3984,11 @@ function drawWorld(time){
   let ox=0,oy=0;
   if(perf()<shakeT){ox=rnd(-shakeA,shakeA);oy=rnd(-shakeA,shakeA);}
   ctx.save(); ctx.translate(-Math.round(camX)+ox,-Math.round(camY)+oy);
+  // Lighting v1: cache the world->view translate (incl. shake) so lightingPass
+  // can place lights/glows in view space, and anchor the player light. flKind is
+  // reset here and re-set below if a follower is active this frame.
+  lightTX=-Math.round(camX)+ox; lightTY=-Math.round(camY)+oy;
+  plPX=ix*TS+TS/2; plPY=iy*TS+TS/2; flKind=null;
   const x0=Math.floor(Math.max(0,camX/TS))-1, x1=Math.min(m.w,x0+VW+3);
   const y0=Math.floor(Math.max(0,camY/TS))-1, y1=Math.min(m.h,y0+VH+3);
   for(let y=Math.max(0,y0);y<y1;y++)for(let x=Math.max(0,x0);x<x1;x++)
@@ -3930,6 +4014,9 @@ function drawWorld(time){
     if(pr.map!==P.map||pr.tall||!propVisible(pr))continue;
     drawProp(pr,time);
   }
+  // Lighting v1: directional ground shadows for tall props, drawn after tiles +
+  // flat props and before entities so structures look planted (cheap, no raycast).
+  castPropShadows(time);
   // depth-sorted entities: npcs, follower, player, tall props
   // 4-frame walk cycle, time-based (~6 fps): stride, pass, stride, pass.
   // Characters with hand-crafted frames use Walk1..Walk4 (1,3,2,4).
@@ -3960,6 +4047,7 @@ function drawWorld(time){
   const fdx=P.moving?followerPrev.x+(follower.x-followerPrev.x)*P.mt:follower.x;
   const fdy=P.moving?followerPrev.y+(follower.y-followerPrev.y)*P.mt:follower.y;
   if(P.party.includes('Uriel')&&!F.metatron){
+    flKind='uriel'; flPX=fdx*TS+TS/2; flPY=fdy*TS+TS/2; // lighting v1: warm angel glow
     ents.push({y:fdy, draw:()=>drawChar('uriel',P.facing,fdx*TS,fdy*TS,
       {glow:'#ffe9a8',halo:true,alpha:.92,frame:wfr('uriel')})});
   }
@@ -3967,6 +4055,7 @@ function drawWorld(time){
   // Independent of the Uriel path above (postgame is F.metatron, so Uriel never draws here);
   // reuses the shared `follower` trail tile + the soul ghost palette. No new art.
   else if(witnessFollowerActive()){
+    flKind='abel'; flPX=fdx*TS+TS/2; flPY=fdy*TS+TS/2; // lighting v1: Abel spectral blue
     ents.push({y:fdy, draw:()=>drawChar('soul',P.facing,fdx*TS,fdy*TS,
       {glow:'#9ab8e0',alpha:.72,bob:Math.sin(time/500+fdx)*2,frame:wfr('soul')})});
   }
@@ -3997,45 +4086,178 @@ function drawWorld(time){
   ctx.fillStyle='#cdbbe8';ctx.font='16px Georgia';ctx.textAlign='center';
   ctx.fillText(MAPNAMES[P.map]||'',CW/2,CH-17);
 }
-/* screen-space lighting: vignettes, tints, god rays */
+/* =====================================================================
+   LIGHTING v1 — layered Canvas 2D lighting (this is NOT raycast lighting)
+   ---------------------------------------------------------------------
+   A cheap, painterly lighting layer made of flat gradient fills, additive
+   radial "lights", and soft cast shadows. There is NO ray casting, no
+   per-pixel visibility, and no light-geometry engine — every pass is a
+   small handful of canvas fills per frame, sized to stay well under the
+   existing ~7ms world-frame budget. Pieces:
+     1. MOOD                     — per-area ambient tint + vignette config.
+     2. groundShadow / castPropShadows — directional ground shadows.
+     3. collectLights / drawLight      — small additive light sources.
+   lightingPass() runs in view-space, already clipped to the map rect by
+   drawWorld(), so the HUD / banners / letterbox are never darkened. Every
+   pass that flips globalCompositeOperation does so inside save()/restore(),
+   so the context is always left at the default 'source-over'.
+   ===================================================================== */
+// Per-area mood. `key` = [top-left, bottom-right] key-light stops; `tint` = a
+// flat ambient wash (or null); `vig`/`vigInner` = vignette edge colour + the
+// clear-radius fraction; `shadowA` = base opacity for cast shadows in this area.
+const MOOD={
+  earth:        {key:['rgba(255,246,214,0.07)','rgba(24,10,38,0.16)'], tint:null,                     vig:'rgba(10,6,20,0.22)',  vigInner:0.45, shadowA:0.22},
+  earth_corrupt:{key:['rgba(180,150,90,0.06)','rgba(30,6,24,0.30)'],   tint:'rgba(70,12,52,0.16)',    vig:'rgba(18,2,16,0.42)',  vigInner:0.34, shadowA:0.26},
+  hermon:       {key:['rgba(170,196,255,0.09)','rgba(12,20,48,0.26)'], tint:'rgba(60,90,170,0.08)',   vig:'rgba(6,12,34,0.30)',  vigInner:0.42, shadowA:0.24},
+  sheol:        {key:['rgba(120,80,170,0.05)','rgba(8,4,20,0.30)'],    tint:'rgba(40,16,64,0.20)',    vig:'rgba(4,2,12,0.60)',   vigInner:0.18, shadowA:0.32},
+  heaven:       {key:['rgba(255,250,228,0.12)','rgba(60,46,20,0.10)'], tint:'rgba(255,244,210,0.05)', vig:'rgba(40,30,10,0.14)', vigInner:0.55, shadowA:0.14},
+  throne:       {key:['rgba(255,250,228,0.13)','rgba(60,46,20,0.10)'], tint:'rgba(255,240,200,0.06)', vig:'rgba(44,30,8,0.16)',  vigInner:0.52, shadowA:0.15},
+  dudael:       {key:['rgba(255,150,60,0.10)','rgba(60,10,30,0.26)'],  tint:'rgba(120,40,16,0.10)',   vig:'rgba(30,4,12,0.34)',  vigInner:0.40, shadowA:0.26},
+  title:        {key:['rgba(255,246,214,0.06)','rgba(20,10,34,0.18)'], tint:null,                     vig:'rgba(8,6,18,0.24)',   vigInner:0.45, shadowA:0.20},
+};
+// Which mood applies right now (mirrors currentMusicKey's area mapping).
+function moodKey(){
+  if(view==='title')return 'title';
+  if(P.map==='earth')return era()?'earth_corrupt':'earth';
+  if(P.map&&P.map.startsWith('sheol'))return 'sheol';   // incl. the deeper descent maps
+  return MOOD[P.map]?P.map:'earth';
+}
+function curMood(){ return MOOD[moodKey()]||MOOD.earth; }
+
+// Soft cast/contact shadow: a feathered ellipse, optionally skewed sideways so a
+// tall prop throws its shadow away from the top-left key light. Cheap radial fill.
+function groundShadow(cx,cy,rx,ry,a,skewX){
+  if(rx<=0||a<=0)return;
+  ctx.save();
+  ctx.translate(cx,cy);
+  if(skewX)ctx.transform(1,0,skewX,1,0,0);
+  ctx.scale(1,ry/rx);
+  const g=ctx.createRadialGradient(0,0,0,0,0,rx);
+  g.addColorStop(0,'rgba(0,0,0,'+a+')');
+  g.addColorStop(0.65,'rgba(0,0,0,'+(a*0.45)+')');
+  g.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=g;
+  ctx.beginPath();ctx.arc(0,0,rx,0,7);ctx.fill();
+  ctx.restore();
+}
+// Per-prop-type directional shadow footprint: [halfWidth, skew]. Tiny ground
+// decals (lily/rubble/skull/rune) are intentionally absent — they carry their
+// own flat blob and a cast shadow would over-darken them. Chains hang from the
+// ceiling and cast nothing on the floor here. Characters/chests already draw
+// their own contact ovals (drawChar / chest art), so this only grounds structures.
+const PROP_SHADOW={pillar:[26,0.62],stalag:[19,0.46],brazier:[15,0.40],wound:[17,0.42],banner:[17,0.52],bush:[14,0.30]};
+// Directional ground shadows for the current map's tall props. Runs in world
+// space (inside drawWorld's camera transform), after tiles + flat props and
+// before entities, so structures feel planted with no per-tile raycast.
+function castPropShadows(time){
+  const A=curMood().shadowA;
+  for(const p of PROPS){
+    if(p.map!==P.map||!p.tall||!propVisible(p))continue;
+    const s=PROP_SHADOW[p.t]; if(!s)continue;
+    groundShadow(p.x*TS+TS/2+s[0]*0.25, p.y*TS+TS-6, s[0], s[0]*0.34, A, s[1]);
+  }
+}
+
+// One additive light: a radial glow drawn 'lighter' (by the caller) so it punches
+// through the mood darkening. Positions arrive in world px and are shifted into
+// view space via the cached camera translate; off-screen sources are skipped.
+function drawLight(L){
+  const x=L.x+lightTX, y=L.y+lightTY;
+  if(x<-L.r||x>CW+L.r||y<-L.r||y>CH+L.r)return;
+  const g=ctx.createRadialGradient(x,y,0,x,y,L.r);
+  g.addColorStop(0,L.c0);
+  g.addColorStop(0.5,L.c1||'rgba(0,0,0,0)');
+  g.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=g;ctx.fillRect(x-L.r,y-L.r,L.r*2,L.r*2);
+}
+// Gather a modest set of live light sources for the current map only: the
+// player/Metatron, the active witness/Uriel follower, lit props (braziers /
+// ledger-fire, Sheol wounds, heaven runes/banners), and expedition foes. The
+// animated terms (flicker / breathing / halo pulse) live here so each glow feels
+// alive. Capped at MAX so the per-frame fill count stays small.
+function collectLights(time){
+  const L=[],MAX=16;
+  // player / Metatron — a gold halo in the postgame, a soft warm pool in the dark
+  if(plPX!=null){
+    if(F.metatron){const p=0.5+0.5*Math.sin(time/520);
+      L.push({x:plPX,y:plPY-6,r:120+10*p,c0:'rgba(255,232,150,'+(0.18+0.07*p)+')',c1:'rgba(255,210,110,0.05)'});}
+    else if((P.map&&P.map.startsWith('sheol'))||P.map==='dudael'||era())
+      L.push({x:plPX,y:plPY-6,r:96,c0:'rgba(255,224,170,0.14)',c1:'rgba(255,190,120,0.04)'});
+  }
+  // active follower — Abel spectral blue, Uriel warm gold
+  if(flKind){const p=0.5+0.5*Math.sin(time/440);
+    if(flKind==='abel')L.push({x:flPX,y:flPY-6,r:84+8*p,c0:'rgba(150,196,255,'+(0.16+0.06*p)+')',c1:'rgba(110,150,230,0.05)'});
+    else L.push({x:flPX,y:flPY-6,r:90,c0:'rgba(255,232,150,0.15)',c1:'rgba(255,205,120,0.05)'});
+  }
+  // lit props on this map (braziers/ledger-fire, Sheol wounds, heaven runes/banners)
+  for(const pr of PROPS){
+    if(L.length>=MAX)break;
+    if(pr.map!==P.map||!propVisible(pr))continue;
+    const cx=pr.x*TS+TS/2, cy=pr.y*TS+TS/2;
+    if(pr.t==='brazier'){const f=0.5+0.5*Math.sin(time/170+pr.x*3);   // firelight flicker
+      L.push({x:cx,y:cy+4,r:78+10*f,c0:'rgba(255,168,70,'+(0.22+0.12*f)+')',c1:'rgba(220,110,40,0.07)'});}
+    else if(pr.t==='wound'){const b=0.5+0.5*Math.sin(time/420+pr.x*2); // the dark breathes
+      L.push({x:cx,y:cy,r:70+12*b,c0:'rgba(170,110,220,'+(0.16+0.10*b)+')',c1:'rgba(110,60,170,0.05)'});}
+    else if(pr.t==='rune'){const u=0.5+0.5*Math.sin(time/600+pr.x+pr.y);
+      L.push({x:cx,y:cy,r:54+8*u,c0:'rgba(255,232,150,'+(0.12+0.08*u)+')',c1:'rgba(220,180,90,0.04)'});}
+    else if(pr.t==='banner')
+      L.push({x:cx,y:cy-10,r:60,c0:'rgba(255,240,190,0.10)',c1:'rgba(220,190,120,0.03)'});
+  }
+  // visible expedition foes carry a faint dread glow so they read in the dark
+  for(const e of EXPEDITION_ENEMIES){
+    if(L.length>=MAX)break;
+    if(e.map!==P.map||!expEnemyLive(e))continue;
+    const c=e.pal==='soul'?'rgba(150,190,255,0.12)':'rgba(200,60,70,0.13)';
+    L.push({x:e.x*TS+TS/2,y:e.y*TS+TS/2,r:60,c0:c,c1:'rgba(0,0,0,0)'});
+  }
+  return L.length>MAX?L.slice(0,MAX):L;
+}
+/* screen-space lighting v1: mood key-light + tint + vignette, area pre-light
+   darkening, additive dynamic lights, then per-area animated accents (warm
+   pool / embers / god rays + shimmer / heat haze). Flat fills only, never
+   raycast. Composite mode is always restored to 'source-over'. */
 function lightingPass(time){
-  const W=CW,Hh=CH;
-  // global key light: warm from the top-left, cool falloff bottom-right
+  const W=CW,Hh=CH, mk=moodKey(), M=MOOD[mk]||MOOD.earth;
+  // 1) key light: warm top-left -> cool bottom-right
   const dg=ctx.createLinearGradient(0,0,W,Hh);
-  dg.addColorStop(0,'rgba(255,246,214,0.07)');
-  dg.addColorStop(0.45,'rgba(0,0,0,0)');
-  dg.addColorStop(1,'rgba(24,10,38,0.16)');
+  dg.addColorStop(0,M.key[0]);dg.addColorStop(0.45,'rgba(0,0,0,0)');dg.addColorStop(1,M.key[1]);
   ctx.fillStyle=dg;ctx.fillRect(0,0,W,Hh);
-  // gentle universal vignette
-  const vg=ctx.createRadialGradient(W/2,Hh/2,Hh*0.45,W/2,Hh/2,Hh*0.95);
-  vg.addColorStop(0,'rgba(0,0,0,0)');vg.addColorStop(1,'rgba(10,6,20,0.22)');
+  // 2) flat ambient wash (the area's colour)
+  if(M.tint){ctx.fillStyle=M.tint;ctx.fillRect(0,0,W,Hh);}
+  // 3) vignette
+  const vg=ctx.createRadialGradient(W/2,Hh/2,Hh*M.vigInner,W/2,Hh/2,Hh*0.96);
+  vg.addColorStop(0,'rgba(0,0,0,0)');vg.addColorStop(1,M.vig);
   ctx.fillStyle=vg;ctx.fillRect(0,0,W,Hh);
-  if(P.map==='earth'&&!era()){ // warm afternoon light
+  // 3b) area-specific pre-light darkening (so lights below punch through)
+  if(mk==='sheol'){
+    const g=ctx.createRadialGradient(W/2,Hh/2,90,W/2,Hh/2,440);
+    g.addColorStop(0,'rgba(0,0,0,0)');g.addColorStop(1,'rgba(0,0,0,0.50)');
+    ctx.fillStyle=g;ctx.fillRect(0,0,W,Hh);
+    if(P.map==='sheolHunger'){ // the Last Hunger's dark breathes at the bottom of the pit
+      const br=0.5+0.5*Math.sin(time/1600);
+      const d=ctx.createRadialGradient(W/2,Hh*0.5,80,W/2,Hh*0.5,360+40*br);
+      d.addColorStop(0,'rgba(0,0,0,0)');d.addColorStop(1,'rgba(6,0,12,'+(0.18+0.10*br)+')');
+      ctx.fillStyle=d;ctx.fillRect(0,0,W,Hh);
+    }
+  }
+  // 4) additive dynamic lights
+  const lights=collectLights(time);
+  if(lights.length){
+    ctx.save();ctx.globalCompositeOperation='lighter';
+    for(const Lt of lights)drawLight(Lt);
+    ctx.restore();
+  }
+  // 5) per-area animated accents
+  if(mk==='earth'){ // warm afternoon pool from above
     const g=ctx.createRadialGradient(W*0.5,Hh*0.34,60,W*0.5,Hh*0.5,W*0.62);
-    g.addColorStop(0,'rgba(255,236,180,0.10)');g.addColorStop(.6,'rgba(0,0,0,0)');g.addColorStop(1,'rgba(20,12,40,0.30)');
+    g.addColorStop(0,'rgba(255,236,180,0.10)');g.addColorStop(.6,'rgba(0,0,0,0)');g.addColorStop(1,'rgba(0,0,0,0)');
     ctx.fillStyle=g;ctx.fillRect(0,0,W,Hh);
   }
-  if(era()){
-    ctx.fillStyle='rgba(70,10,50,0.16)';ctx.fillRect(0,0,W,Hh);
-    const g=ctx.createRadialGradient(W*0.5,Hh*0.5,80,W*0.5,Hh*0.5,W*0.62);
-    g.addColorStop(0,'rgba(0,0,0,0)');g.addColorStop(1,'rgba(20,0,16,0.45)');
-    ctx.fillStyle=g;ctx.fillRect(0,0,W,Hh);
-  }
-  if(P.map==='hermon'){
-    ctx.fillStyle='rgba(150,180,255,0.08)';ctx.fillRect(0,0,W,Hh);
-    const g=ctx.createLinearGradient(0,0,0,Hh);
-    g.addColorStop(0,'rgba(40,60,140,0.18)');g.addColorStop(1,'rgba(0,0,0,0.22)');
-    ctx.fillStyle=g;ctx.fillRect(0,0,W,Hh);
-  }
-  if(P.map.startsWith('sheol')){ // incl. the postgame descent maps (sheolRecords/Gnawed/Hunger)
-    const g=ctx.createRadialGradient(W/2,Hh/2,90,W/2,Hh/2,420);
-    g.addColorStop(0,'rgba(0,0,0,0)');g.addColorStop(1,'rgba(0,0,0,0.74)');
-    ctx.fillStyle=g;ctx.fillRect(0,0,W,Hh);
+  else if(mk==='sheol'){ // ember underglow rising off the coals
     ctx.fillStyle='rgba(230,90,30,'+(0.04+0.025*Math.sin(time/600))+')';
     ctx.fillRect(0,Hh*0.6,W,Hh*0.4);
   }
-  if(P.map==='heaven'||P.map==='throne'){
-    // god rays sweeping slowly — soft, feathered shafts
+  else if(mk==='heaven'||mk==='throne'){ // slow god rays + a breathing shimmer
     ctx.save();ctx.globalCompositeOperation='lighter';
     for(let i=0;i<5;i++){
       const sway=Math.sin(time/4200+i*1.7)*0.10;
@@ -4049,12 +4271,13 @@ function lightingPass(time){
       g.addColorStop(1,'rgba(255,246,210,0)');
       ctx.fillStyle=g;ctx.fillRect(-w,-40,w*2,Hh*1.5);ctx.restore();
     }
+    ctx.globalAlpha=0.03+0.02*Math.sin(time/900); // gentle full-frame shimmer
+    ctx.fillStyle='rgba(255,248,220,1)';ctx.fillRect(0,0,W,Hh);
     ctx.restore();
-    ctx.fillStyle='rgba(255,244,210,0.04)';ctx.fillRect(0,0,W,Hh);
   }
-  if(P.map==='dudael'){
-    const g=ctx.createLinearGradient(0,0,0,Hh);
-    g.addColorStop(0,'rgba(255,140,50,0.12)');g.addColorStop(.6,'rgba(0,0,0,0)');g.addColorStop(1,'rgba(60,10,30,0.25)');
+  else if(mk==='dudael'){ // heat haze rising from the pit floor
+    const g=ctx.createLinearGradient(0,Hh,0,Hh*0.4);
+    g.addColorStop(0,'rgba(255,120,40,'+(0.10+0.03*Math.sin(time/700))+')');g.addColorStop(1,'rgba(0,0,0,0)');
     ctx.fillStyle=g;ctx.fillRect(0,0,W,Hh);
   }
 }
