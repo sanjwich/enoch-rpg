@@ -3312,10 +3312,18 @@ const PROPS=[
  // corridor row (y=5), so each map is walkable end to end; only the Hunger Pit's wound caps the far end.
  {map:'sheolRecords',x:9,y:4,t:'stalag',tall:1,solid:1},
  {map:'sheolRecords',x:3,y:2,t:'brazier',tall:1,solid:1},{map:'sheolRecords',x:14,y:8,t:'brazier',tall:1,solid:1},
+ // Doorway markers: a non-solid rune on the entrance tile (y=5) flanked by solid stalags at y=4/y=6,
+ // set on the inner column (x=1 west arrival, x=16 east arrival) so the edge warp tiles + the y=5
+ // corridor stay clear. Both edges of Records/Gnawed are open; Hunger's east edge is walled (west only).
+ {map:'sheolRecords',x:1,y:5,t:'rune'},{map:'sheolRecords',x:1,y:4,t:'stalag',tall:1,solid:1},{map:'sheolRecords',x:1,y:6,t:'stalag',tall:1,solid:1},
+ {map:'sheolRecords',x:16,y:5,t:'rune'},{map:'sheolRecords',x:16,y:4,t:'stalag',tall:1,solid:1},{map:'sheolRecords',x:16,y:6,t:'stalag',tall:1,solid:1},
  {map:'sheolGnawed',x:9,y:4,t:'stalag',tall:1,solid:1},
  {map:'sheolGnawed',x:3,y:2,t:'brazier',tall:1,solid:1},{map:'sheolGnawed',x:14,y:8,t:'brazier',tall:1,solid:1},
+ {map:'sheolGnawed',x:1,y:5,t:'rune'},{map:'sheolGnawed',x:1,y:4,t:'stalag',tall:1,solid:1},{map:'sheolGnawed',x:1,y:6,t:'stalag',tall:1,solid:1},
+ {map:'sheolGnawed',x:16,y:5,t:'rune'},{map:'sheolGnawed',x:16,y:4,t:'stalag',tall:1,solid:1},{map:'sheolGnawed',x:16,y:6,t:'stalag',tall:1,solid:1},
  {map:'sheolHunger',x:16,y:5,t:'wound',tall:1,solid:1},
  {map:'sheolHunger',x:8,y:3,t:'stalag',tall:1,solid:1},{map:'sheolHunger',x:8,y:8,t:'stalag',tall:1,solid:1},
+ {map:'sheolHunger',x:1,y:5,t:'rune'},{map:'sheolHunger',x:1,y:4,t:'stalag',tall:1,solid:1},{map:'sheolHunger',x:1,y:6,t:'stalag',tall:1,solid:1},
  {map:'heaven',x:4,y:19,t:'banner',tall:1},{map:'heaven',x:9,y:19,t:'banner',tall:1},
  {map:'heaven',x:4,y:13,t:'banner',tall:1},{map:'heaven',x:9,y:13,t:'banner',tall:1},
  {map:'heaven',x:4,y:6,t:'banner',tall:1},{map:'heaven',x:9,y:6,t:'banner',tall:1},
