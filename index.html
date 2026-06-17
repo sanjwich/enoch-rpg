@@ -3219,6 +3219,7 @@ const NPCS=[
  {id:'pgValeSoul',map:'earth',x:7,y:2,pal:'soul',face:'down',vis:()=>F.metatron,
   talk:async()=>{
     await say('A SOUL OF THE DROWNED VALLEY','Metatron. We knew you when you were only Enoch, who counted our stars and wrote down our small names. The water took the valley — but it could not take what you had already written. We wait quiet now, and remembered. That is enough.');
+    await say('A SOUL OF THE DROWNED VALLEY','We do not envy you the seventy names and the throne-fire, Scribe. <i>(The shade looks out over the still water.)</i> We envy you the small thing only: that you remember which field was ours, and where the well stood, and whose child laughed by it. Heaven is wide. But it was here we were happy.');
     if(witnessFollowerActive())
       await say('ABEL','The first blood greets the last witness. Walk gently here, Scribe — this ground remembers being a home.');
     else if(companionUnlocked('abel'))
@@ -3227,35 +3228,93 @@ const NPCS=[
  {id:'pgValeElder',map:'earth',x:4,y:4,pal:'elder',face:'right',vis:()=>F.metatron,
   talk:async()=>{
     await say('THE SHADE OF AN ELDER','Is it truly you, scribe of Jared\'s line? They robed you in a new name and seventy tongues, and still you walk the old fields. <i>Lesser YHWH</i>, they call you now. Be gentle with that title, son — it is a borrowed coat, and the cold beneath it belongs to the Most High alone.');
+    await say('THE SHADE OF AN ELDER','I taught you your letters once, before the Watchers taught the world worse things. <i>(He studies your face.)</i> A man may be lifted above the angels and still stoop to greet his old teacher. That stooping — that is the only proof of greatness I would trust.');
+    if(witnessFollowerActive())
+      await say('THE SHADE OF AN ELDER','And you brought the murdered brother up with you, walking free? <i>(His voice cracks.)</i> Then the ledger truly runs both ways, child — down into the pit, and up out of it. I had not dared believe the second.');
+    else if(companionUnlocked('abel'))
+      await say('THE SHADE OF AN ELDER','They whisper you redeemed Abel himself from the hollow. If even the first blood can be answered, then no name is too far down to be written upward. Keep writing, son.');
   }},
  {id:'pgValeWoman',map:'earth',x:16,y:4,pal:'edna',face:'down',vis:()=>F.metatron,
   talk:async()=>{
     await say('A WOMAN\'S SHADE','I kept a garden once, beside a house that is only water now. The hyssop grew wild after. Metatron — when you write the ledger of the world, leave a line for the ordinary green things. Someone tended them. Someone loved them. That, too, was righteousness.');
+    await say('A WOMAN\'S SHADE','You wear no dust on your feet anymore, Scribe — you who used to track half the field into the house. <i>(She almost laughs.)</i> Strange, the things a shade keeps. Not the great fire of the throne, but the smell of bread, and a boy late for supper. Write those down too, if heaven keeps room.');
+    if(witnessFollowerActive())
+      await say('A WOMAN\'S SHADE','Is that the brother Cain felled, walking at your shoulder? <i>(She presses a hand to her mouth.)</i> Then there is a chair kept for him at some table, and the waiting is over. Go on, both of you. The drowned will mind your garden.');
   }},
  {id:'pgValeBoy',map:'earth',x:17,y:11,pal:'boy',face:'down',vis:()=>F.metatron,
   talk:async()=>{
     await say('THE SHEPHERD BOY\'S SPIRIT','You went up the mountain because I begged you to see. <i>(He smiles, unafraid now.)</i> I am not cold here, Scribe. The goats are with me. Tell heaven a herdsboy kept his flock to the very end — and that the end was not the end after all.');
+    await say('THE SHEPHERD BOY\'S SPIRIT','Do you remember the song I whistled the goats home with? <i>(He hums a few notes, and the empty valley seems to lean in to listen.)</i> I have all the time there ever was to whistle it now. The drowned hum along, when they think no one hears.');
     if(witnessFollowerActive())
       await say('ABEL','Two shepherds, then — one of beasts, one of brothers. The Scribe keeps better company than he knows.');
+    else if(companionUnlocked('abel'))
+      await say('THE SHEPHERD BOY\'S SPIRIT','They say you brought a shepherd up out of Sheol — the very first one, who minded his flock before there were any flocks but his. <i>(His eyes go wide.)</i> Then he and I have a thing to talk over, Scribe, when next he is allowed to walk. Bring him round. A herdsboy is never too small to keep a herdsman company.');
   }},
  {id:'pgValeWatcher',map:'earth',x:8,y:15,pal:'sentinel',face:'up',vis:()=>F.metatron,
   talk:async()=>{
     await say('A SENTINEL OF THE EMPTIED VALLEY','Prince of the Presence. I am set to keep this place until the waters remember their bounds. None pass here but you, who are written above and below. Walk where you will, Metatron — the field is yours to grieve, and yours to record.');
+    await say('A SENTINEL OF THE EMPTIED VALLEY','I am not of the fallen, Scribe — I am of those who held the line while Semjaza\'s host went down to Hermon. We watched our brothers ruin themselves and could not turn them. <i>(The spear lowers a degree.)</i> So when you ask why I keep an empty valley so faithfully, it is this: someone must guard what was, even after it is gone.');
+    if(witnessFollowerActive())
+      await say('A SENTINEL OF THE EMPTIED VALLEY','The redeemed one travels under your wing. Good. A Watcher\'s charge was always to keep, never to consume — your companion is proof the keeping can be undone for mercy. I will remember it the next time I am tempted to despair of my brothers.');
   }},
  // --- Sheol (the hollow places, after the campaign): keepers and freed dead ---
  {id:'pgHollowKeeper',map:'sheol',x:4,y:8,pal:'soul',face:'right',ghost:true,vis:()=>F.metatron,
   talk:async()=>{
     await say('A KEEPER OF THE HOLLOW RECORDS','You set your cold fire at the mouth, Scribe, and the dead sleep deeper for it. I tally those who are remembered now — the list lengthens, and the silence shrinks. Read your Writs above; we will keep the count below.');
+    await say('A KEEPER OF THE HOLLOW RECORDS','Before your fire, the hollows ran one way only — down. I kept a count and the count never shrank. <i>(The ghost-quill scratches at nothing.)</i> Now and again a name lifts off my page and rises, and I must strike it out. Strange work, Scribe, to be a clerk of the upward door. I had forgotten there was such a thing.');
     if(witnessFollowerActive())
       await say('ABEL','Count me among the waking, brother of the deep. I walk at the Scribe\'s side now.');
+    else if(companionUnlocked('abel'))
+      await say('A KEEPER OF THE HOLLOW RECORDS','I struck the oldest name from my ledger when you raised him — the very first blood, that had sat at the head of my list since lists began. <i>(A long, hollow pause.)</i> If <i>that</i> one can be crossed out and sent upward, Scribe, then there is no entry in all my books I dare call final.');
   }},
  {id:'pgFreedSoul',map:'sheol',x:10,y:3,pal:'soul',face:'down',ghost:true,vis:()=>F.metatron,
   talk:async()=>{
     await say('A FREED SOUL','Once I feared the second death — the deeper down, where the hunger fed on what came to rest. You closed that mouth, Metatron. Now when I sink, I sink only into rest. Blessed be the hand that writes mercy into the ledger of the pit.');
+    await say('A FREED SOUL','I do not even know my own name anymore, Scribe — the hunger gnawed it off me long before you came. <i>(The soul does not seem grieved by it.)</i> But you wrote <i>something</i> down in my place, and rest does not ask to be named. It is enough to be remembered by the hand that remembers all.');
+    if(witnessFollowerActive())
+      await say('A FREED SOUL','And there walks one I knew of by rumor in the deep — the brother whose blood cried from the ground. <i>(The soul stills.)</i> If he can rise and walk in the light at your shoulder, then the rest you gave me is not a small thing. It is the first hour of a very long morning.');
+    else if(companionUnlocked('abel'))
+      await say('A FREED SOUL','Word sinks down even here: you called the first slain one out of the hollow by his name. <i>(The soul bows what is left of its head.)</i> Mercy that reaches the very bottom of the pit is mercy I can trust to hold me too.');
   }},
  {id:'pgDeadScribe',map:'sheol',x:16,y:6,pal:'elder',face:'left',ghost:true,vis:()=>F.metatron,
   talk:async()=>{
     await say('AN OLD SCRIBE AMONG THE DEAD','I kept books in the living years, and I keep them still — names, debts, the hour each soul came down. You out-wrote us all, Enoch-that-was. <i>Lesser YHWH.</i> When another hunger stirs in the dark, my tallies will be ready. The dead make patient clerks.');
+    await say('AN OLD SCRIBE AMONG THE DEAD','In life I thought a ledger was for the keeping of debts — who owed, who paid, who would never pay. <i>(He turns a page that is not there.)</i> You taught the world a harder column, Scribe: who is to be <i>remembered</i>. That one cannot be settled and closed. It only ever lengthens. I find I do not mind the extra work.');
+    if(witnessFollowerActive())
+      await say('AN OLD SCRIBE AMONG THE DEAD','The first murdered man, abroad among the living, and writing in your shadow? <i>(The old clerk peers, professional.)</i> Then mark my books amended, Metatron — I had him entered as <i>closed, no redress</i> since the morning of the world. Forty centuries of certainty, undone by one true name. I shall sleep better for the correction.');
+    else if(companionUnlocked('abel'))
+      await say('AN OLD SCRIBE AMONG THE DEAD','They tell me you redeemed the oldest entry of them all — Abel, first of the slain. <i>(He wets a phantom thumb and pages back through the dark.)</i> I have kept that name underlined in black since before there were years to count. Tell me where to write the new ruling, Scribe, and I will letter it in gold.');
+  }},
+ // --- Sheol, more witnesses: clustered around the Ledger-fire (2,9) and strung east along the
+ //     central corridor (rows 6–8) toward the descent mouth / wound at (17,7). All vis:()=>F.metatron
+ //     (campaign-invisible, old-save-safe), speak only, sit on validated open floor clear of NPCs/props. ---
+ {id:'pgFireTender',map:'sheol',x:6,y:8,pal:'soul',face:'left',ghost:true,vis:()=>F.metatron,
+  talk:async()=>{
+    await say('A TENDER OF THE COLD FIRE','I keep your fire fed, Metatron — not with wood, for it eats no wood, but with names. I lay each one upon the cold flame and it does not burn them away; it <i>holds</i> them. Before you set it at the mouth, our hands had nothing to do in the dark. Now there is the tending, and the tending is a kind of mercy.');
+    if(witnessFollowerActive())
+      await say('ABEL','I was the first name laid on a fire that did not consume me. <i>(He warms his hands at the cold light, and smiles.)</i> Tend it well, friend. I know now how much warmth a kept name can give.');
+    else if(companionUnlocked('abel'))
+      await say('A TENDER OF THE COLD FIRE','Word drifts down even to the fire-tenders: the first blood walks upward now. <i>(The tender lays an unseen name gently on the flame.)</i> Then no name I keep here is too cold to one day rise.');
+  }},
+ {id:'pgQueueSoul',map:'sheol',x:9,y:8,pal:'soul',face:'down',ghost:true,vis:()=>F.metatron,
+  talk:async()=>{
+    await say('A SOUL IN THE LONG QUEUE','We used to crowd the mouth and wail, Scribe — you remember our noise. Now we wait in a line that <i>moves</i>. <i>(The shade does not look afraid.)</i> To be waited for is one thing. To be waited <i>on</i> — to know a hand is coming for each of us in turn — that is new under the dark.');
+    if(witnessFollowerActive())
+      await say('A SOUL IN THE LONG QUEUE','Is that him at the head of the line, walking out at your side? <i>(A long held breath runs the length of the queue.)</i> Then the line truly ends somewhere. We can wait now, Scribe. You have shown us the waiting ends.');
+  }},
+ {id:'pgWanderShade',map:'sheol',x:12,y:7,pal:'soul',face:'down',ghost:true,vis:()=>F.metatron,
+  talk:async()=>{
+    await say('A WANDERING SHADE','I drift toward the deep way, Metatron, and back, and toward it again. The hunger that squatted down there is stilled — I can feel the quiet of it even from here. <i>(It turns its hollow face east.)</i> I go near only to be sure it is truly gone. Forgive a dead thing its small courage.');
+    if(witnessFollowerActive()||companionUnlocked('abel'))
+      await say('A WANDERING SHADE','You carried one up out of the very bottom, and still he is calm. <i>(It steadies.)</i> Then I will go one step deeper than I dared, and find I am not eaten. Thank you, Scribe, for the deep made walkable.');
+  }},
+ {id:'pgPenitentWatcher',map:'sheol',x:15,y:8,pal:'sentinel',face:'right',vis:()=>F.metatron,
+  talk:async()=>{
+    await say('A WATCHER, UNCHAINED YET UNLEAVING','I am of the host that fell, Prince of the Presence — not the worst of them, but I stood among them and did not turn away. My brothers lie bound in Dudael; I have bound myself <i>here</i>, at the mouth of the deep my kind dug. Pass freely. A guilt that guards is the only repentance a Watcher is granted.');
+    if(witnessFollowerActive())
+      await say('A WATCHER, UNCHAINED YET UNLEAVING','<i>(The Watcher kneels as Abel passes.)</i> First blood — my kind taught the world the arts that spilled you, and ten thousand after. I cannot unspill it. I can only kneel, and keep this mouth shut behind you. Walk on, and do not look at me.');
+    else if(companionUnlocked('abel'))
+      await say('A WATCHER, UNCHAINED YET UNLEAVING','You drew the first murdered man up out of the pit my brothers fed. <i>(The spear-point dips to the stone.)</i> If even that wound can be answered, then a Watcher\'s watch is not wholly wasted. I will keep it the longer now, for hope.');
   }},
  // --- Heaven / Throne (placed for tone + future fast-travel; see header note) ---
  {id:'pgHeavenHost',map:'heaven',x:10,y:7,pal:'sentinel',face:'down',vis:()=>F.metatron,
@@ -3306,8 +3365,60 @@ const PROPS=[
  // Postgame Writ-hub marker at the mouth of Sheol — the Ledger-fire where Writs are read
  // (hidden during the campaign; the inspect at the same tile anchors the postgame loop).
  {map:'sheol',x:2,y:9,t:'brazier',tall:1,solid:1,vis:()=>F.postgame},
+ // Postgame ritual chamber around the Ledger-fire (2,9): a clustered, enclosed space where
+ // Metatron reads the Writs. All vis-gated on F.postgame so the campaign Sheol is untouched.
+ // Walkability is preserved: (2,8) stays the single open entrance from the (2,7) corridor, and
+ // the interior pocket (2,8)/(3,8)/(3,9)/(4,9)/(3,10)/(2,10) is floor; nothing solid touches row 7.
+ // Flanking braziers (solid) frame the cold fire:
+ {map:'sheol',x:4,y:8,t:'brazier',tall:1,solid:1,vis:()=>F.postgame},
+ {map:'sheol',x:4,y:10,t:'brazier',tall:1,solid:1,vis:()=>F.postgame},
+ // Small stalag formations (solid) wall off the east + south to enclose the chamber:
+ {map:'sheol',x:5,y:8,t:'stalag',tall:1,solid:1,vis:()=>F.postgame},
+ {map:'sheol',x:5,y:9,t:'stalag',tall:1,solid:1,vis:()=>F.postgame},
+ {map:'sheol',x:5,y:10,t:'stalag',tall:1,solid:1,vis:()=>F.postgame},
+ {map:'sheol',x:3,y:11,t:'stalag',tall:1,solid:1,vis:()=>F.postgame},
+ {map:'sheol',x:4,y:11,t:'stalag',tall:1,solid:1,vis:()=>F.postgame},
+ // Runes (non-solid floor glyphs) ring the fire — the ritual circle the player can stand within:
+ {map:'sheol',x:3,y:8,t:'rune',vis:()=>F.postgame},
+ {map:'sheol',x:3,y:9,t:'rune',vis:()=>F.postgame},
+ {map:'sheol',x:3,y:10,t:'rune',vis:()=>F.postgame},
+ {map:'sheol',x:2,y:10,t:'rune',vis:()=>F.postgame},
+ // Hanging chains (tall, non-solid) drop from the ceiling over the chamber for an enclosed roof:
+ {map:'sheol',x:3,y:7,t:'chain',tall:1,vis:()=>F.postgame},
+ {map:'sheol',x:5,y:7,t:'chain',tall:1,vis:()=>F.postgame},
  // Postgame marker where Ohya stood — the descent begins here (hidden during the campaign).
  {map:'sheol',x:17,y:7,t:'wound',tall:1,vis:()=>F.postgame},
+ // Postgame path-dressing: a torch-lit ritual road from the Ledger-fire chamber (2,9) east toward
+ // the descent (the wound at 17,7 / the warp at 20,7). All vis-gated on F.postgame so the campaign
+ // Sheol is untouched. The walking lane is row 7 — kept clear end to end: braziers/stalags below are
+ // all OFF that lane (rows 2-6 + 8-10), and the runes are non-solid floor glyphs the player walks over.
+ // Brazier gateways flank the lane (row 6 + row 8, lane tile y=7 stays open between them):
+ {map:'sheol',x:8,y:6,t:'brazier',tall:1,solid:1,vis:()=>F.postgame},
+ {map:'sheol',x:8,y:8,t:'brazier',tall:1,solid:1,vis:()=>F.postgame},
+ {map:'sheol',x:14,y:6,t:'brazier',tall:1,solid:1,vis:()=>F.postgame},
+ {map:'sheol',x:14,y:8,t:'brazier',tall:1,solid:1,vis:()=>F.postgame},
+ // Floor runes (non-solid) lay a ritual trail down the lane toward the descent (skips the rubble at
+ // 10,7, the wander-shade at 12,7, and the wound at 17,7):
+ {map:'sheol',x:6,y:7,t:'rune',vis:()=>F.postgame},
+ {map:'sheol',x:9,y:7,t:'rune',vis:()=>F.postgame},
+ {map:'sheol',x:11,y:7,t:'rune',vis:()=>F.postgame},
+ {map:'sheol',x:13,y:7,t:'rune',vis:()=>F.postgame},
+ {map:'sheol',x:15,y:7,t:'rune',vis:()=>F.postgame},
+ {map:'sheol',x:16,y:7,t:'rune',vis:()=>F.postgame},
+ // Hanging chains (tall, non-solid) drop from the ceiling overhead along the road:
+ {map:'sheol',x:8,y:2,t:'chain',tall:1,vis:()=>F.postgame},
+ {map:'sheol',x:11,y:2,t:'chain',tall:1,vis:()=>F.postgame},
+ {map:'sheol',x:15,y:2,t:'chain',tall:1,vis:()=>F.postgame},
+ {map:'sheol',x:7,y:4,t:'chain',tall:1,vis:()=>F.postgame},
+ {map:'sheol',x:13,y:3,t:'chain',tall:1,vis:()=>F.postgame},
+ {map:'sheol',x:16,y:4,t:'chain',tall:1,vis:()=>F.postgame},
+ // Stalag clusters (solid) add cave density off the lane (north, mid-south, and east of the road):
+ {map:'sheol',x:8,y:3,t:'stalag',tall:1,solid:1,vis:()=>F.postgame},
+ {map:'sheol',x:8,y:4,t:'stalag',tall:1,solid:1,vis:()=>F.postgame},
+ {map:'sheol',x:11,y:9,t:'stalag',tall:1,solid:1,vis:()=>F.postgame},
+ {map:'sheol',x:11,y:10,t:'stalag',tall:1,solid:1,vis:()=>F.postgame},
+ {map:'sheol',x:15,y:4,t:'stalag',tall:1,solid:1,vis:()=>F.postgame},
+ {map:'sheol',x:15,y:5,t:'stalag',tall:1,solid:1,vis:()=>F.postgame},
  // Last Hunger descent props (only seen inside the writ-gated maps). Nothing solid sits on the
  // corridor row (y=5), so each map is walkable end to end; only the Hunger Pit's wound caps the far end.
  {map:'sheolRecords',x:9,y:4,t:'stalag',tall:1,solid:1},
@@ -3902,22 +4013,37 @@ const INSPECTS=[
    }
    ensurePostgameState();
    const w=writState('lastHunger'), lh=WRITS.lastHunger;
-   await note('<b>The Ledger-fire of Metatron.</b> You set this cold flame at the mouth of the hollow places yourself, to mark where the <b>Writs of Judgment</b> are read. Open the Scribe\'s Ledger (<b>C</b>) to take up a Writ, descend, and bring the matter to judgment.');
+   const active=isWritMissionActive('lastHunger');
+   // Atmosphere first — the fire reads the room. It leans toward the descent when a Writ is in hand,
+   // and burns close and patient when the Ledger is quiet.
+   if(active)
+     await note('The Ledger-fire stands taller than its fuel, and it leans — east, and downward, the way a hound leans at a closed door. The cold of it is the cold of attention. Somewhere below, the thing you are owed is being counted.');
+   else if(w.outcome)
+     await note('The Ledger-fire has settled to an even, listening glow, the way a lamp burns once the house is asleep. One Writ is sealed beneath it. The flame keeps the place, and waits to be needed again.');
+   else
+     await note('The Ledger-fire burns low and close, a grey coal bedded among the dead like a seal pressed into wax. It is not hungry and it is not cruel. It is only waiting to be read by.');
+   await note('<b>The Ledger-fire of Metatron.</b> You set this cold flame at the mouth of the hollow places with your own hand, to mark where the <b>Writs of Judgment</b> are read — the one fixed point in the wandering dark. From here you take up a charge, descend into the hollows to gather what is true, and carry the matter back up to judgment. The dead drift close to the light of it, the way letters gather toward a name. Open the Scribe\'s Ledger (<b>C</b>) to begin.');
+   // Witness reactivity — three states: walking with you, redeemed-but-resting, or not yet won.
    if(witnessFollowerActive())
-     await say('ABEL','I will keep the fire while you read, Scribe. The dead watch better when one of them is awake.');
-   if(isWritMissionActive('lastHunger')){
+     await say('ABEL','I will keep the fire while you read, Scribe. The dead watch better when one of them is awake — and I am the first of them. Whatever you take up, I have already paid for the road.');
+   else if(companionUnlocked('abel')){
+     await note('The redeemed soul of <b>Abel</b> is not at your side; he keeps his own quiet vigil among the graves, the first-murdered learning to be still. Call him up through the Ledger when you would not descend alone.');
+   } else if(!active){
+     await note('No witness stands with you at the fire. The hollows are kinder, a little, to a judge who descends accompanied — but the Writs do not require it, and the dark has never frightened you.');
+   }
+   if(active){
      const need=lh.requiredClues||3, have=w.clues.length;
      const foes=EXPEDITION_ENEMIES.filter(e=>e.writ==='lastHunger');
      const cleared=foes.filter(expEnemyDefeated).length;
      const next = have<need
-       ? 'Descend east through the Lower Records and the Gnawed Hollow and gather the testimony that remains.'
-       : (w.outcome?'It is already sealed.':'The testimony is complete — descend to the Hunger Pit and confront The Last Hunger.');
-     await note('<b>Writ in hand: The Last Hunger.</b> Testimony <b>'+have+' / '+need+'</b>. Hollow-things put down <b>'+cleared+' / '+foes.length+'</b>. '+next);
+       ? 'Descend east through the Lower Records and the Gnawed Hollow and gather the testimony that remains — a gnawed name, a bitten floor, and the word of the first of the dead.'
+       : (w.outcome?'It is already sealed.':'The testimony is whole. Descend past the cleared hollows to the Hunger Pit and confront The Last Hunger — it will not climb to you; you must go down to it.');
+     await note('<b>Writ in hand: The Last Hunger.</b> Testimony gathered <b>'+have+' / '+need+'</b>. Hollow-things put down <b>'+cleared+' / '+foes.length+'</b>. '+next);
    } else if(w.outcome){
-     const verdict={bound:'You bound it beneath the graves.',destroyed:'You unmade it with the Name placed in you.',redeemed:'You gave it one name and commanded it to sleep under witness.',sealed:'You sealed it in the Ledger, known and imprisoned.'}[w.outcome]||'Judgment was rendered.';
-     await note('<b>The Last Hunger is sealed.</b> '+verdict+' The first Writ is written; the Ledger is patient. When another hunger stirs beneath the world, this fire will mark its reading.');
+     const verdict={bound:'You bound it beneath the graves, and the graves hold.',destroyed:'You unmade it with the Name placed in you, and there is no longer a place where it was.',redeemed:'You gave it one name and commanded it to sleep under witness, and it sleeps.',sealed:'You sealed it in the Ledger, known and imprisoned in the knowing.'}[w.outcome]||'Judgment was rendered.';
+     await note('<b>The Last Hunger is sealed.</b> '+verdict+' The first Writ is written, and a written thing cannot be unwritten. The Ledger is patient. When another hunger stirs beneath the world, this fire will lean toward it, and you will read it here.');
    } else {
-     await note('No Writ is open in your hand. Press <b>C</b> to read the Ledger of Judgment and begin a Writ — <i>The Last Hunger</i> waits to be taken up.');
+     await note('No Writ is open in your hand, and the fire leans nowhere. Press <b>C</b> to read the Ledger of Judgment and take up a charge — <i>The Last Hunger</i> still waits in the deep places to be taken up, named, and answered for.');
    }
  }},
  /* ----- The Last Hunger (postgame Writ). The expedition is now a descent across writ-only deeper
@@ -4387,7 +4513,17 @@ function ambient(time){
     else                  // a leaf tumbling down
       spawnP({x:rnd(0,CW),y:-5,vx:rnd(-.6,-.2),vy:rnd(.5,.9),size:3.5,color:'rgba(120,160,80,0.85)',decay:.005,screen:true});
   }
-  else if(P.map.startsWith('sheol'))spawnP({x:rnd(0,CW),y:CH+4,vx:rnd(-.2,.2),vy:rnd(-1,-.4),size:2,color:'#d06030',decay:.008,screen:true});
+  else if(P.map.startsWith('sheol')){
+    spawnP({x:rnd(0,CW),y:CH+4,vx:rnd(-.2,.2),vy:rnd(-1,-.4),size:2,color:'#d06030',decay:.008,screen:true});
+    // Postgame: the Ledger-fire ritual space breathes — faint soul motes rise and stray
+    // embers drift up. Gated on F.postgame so the campaign Sheol stays as-is.
+    if(F.postgame){
+      if(Math.random()<0.5) // faint blue soul mote, slow rise
+        spawnP({x:rnd(0,CW),y:rnd(CH*0.4,CH),vx:rnd(-.15,.15),vy:rnd(-.5,-.2),size:2,color:'rgba(150,190,235,0.5)',decay:.006,screen:true});
+      else                  // stray ember off the cold fire
+        spawnP({x:rnd(0,CW),y:CH+4,vx:rnd(-.25,.25),vy:rnd(-1.2,-.5),size:1.6,color:'rgba(255,150,70,0.7)',decay:.01,screen:true});
+    }
+  }
   else if(P.map==='dudael')spawnP({x:-4,y:rnd(CH*0.2,CH),vx:rnd(.8,1.6),vy:rnd(-.15,.15),size:2,color:'rgba(220,180,120,0.7)',decay:.007,screen:true});
   else if(P.map==='heaven'||P.map==='throne')spawnP({x:rnd(0,CW),y:rnd(0,CH),vx:0,vy:rnd(-.3,-.1),size:2,color:'#fff6d8',decay:.01,screen:true});
 }
