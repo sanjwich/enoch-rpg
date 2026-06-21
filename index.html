@@ -62,6 +62,24 @@
   #statsPanel .objectiveText{color:var(--parchment); font-size:14px; line-height:1.45;}
   #statsPanel .flavor{color:#cdb8ff; font-style:italic; font-size:12px; opacity:.82; margin-top:5px;}
   #statsPanel .milestone{color:#bfe6c0; font-size:12.5px; line-height:1.5;}
+  /* Writ Board — Mystery-Dungeon-style mission cards */
+  #statsPanel .writCard{position:relative; padding-left:13px;}
+  #statsPanel .writCard::before{content:''; position:absolute; left:0; top:0; bottom:0; width:3px;
+    border-radius:6px 0 0 6px; background:var(--gold-dim);}
+  #statsPanel .writCard.s-active::before{background:#e8c270; box-shadow:0 0 8px rgba(232,194,112,.6);}
+  #statsPanel .writCard.s-judged::before{background:#6f9a6f;}
+  #statsPanel .writCard.s-awaiting::before{background:#c98b3a;}
+  #statsPanel .writCard.s-available::before{background:#7d6fb0;}
+  #statsPanel .writHead{display:flex; justify-content:space-between; align-items:baseline; gap:8px;}
+  #statsPanel .writBadge{font-size:9.5px; letter-spacing:1px; text-transform:uppercase; padding:2px 7px;
+    border-radius:10px; border:1px solid; white-space:nowrap; flex:0 0 auto; align-self:center;}
+  #statsPanel .s-active   .writBadge{color:#1a1410; background:#e8c270; border-color:#e8c270; font-weight:bold;}
+  #statsPanel .s-judged   .writBadge{color:#bfe6c0; background:rgba(111,154,111,.18); border-color:#6f9a6f;}
+  #statsPanel .s-awaiting .writBadge{color:#f0c98a; background:rgba(201,139,58,.16); border-color:#c98b3a;}
+  #statsPanel .s-available .writBadge{color:#cdb8ff; background:rgba(125,111,176,.18); border-color:#7d6fb0;}
+  #statsPanel .writMeta{font-size:10px; letter-spacing:.5px; text-transform:uppercase; color:var(--gold-dim);
+    margin:3px 0 5px;}
+  #statsPanel .writReward b{color:#e8c270;}
   #statsPanel button{margin-top:6px; margin-right:6px; background:#241d3d; color:var(--parchment);
     border:1px solid var(--panel-edge); border-radius:5px; padding:3px 10px; cursor:pointer;
     font-family:inherit; font-size:12.5px;}
@@ -2131,6 +2149,79 @@ function trackWrit(id){ const w=writState(id); if(w.status==='open')w.status='tr
 function addWritClue(id,clue){ const w=writState(id); if(!w.clues.includes(clue))w.clues.push(clue); if(!cutscene)saveGame(); }
 function hasWritClue(id,clue){ return writState(id).clues.includes(clue); }
 function completeWrit(id,outcome){ const w=writState(id); w.status=outcome; w.outcome=outcome; ensurePostgameState(); F.judgments[id]=outcome; if(!cutscene)saveGame(); }
+/* ----- Writ Board presentation helpers (derived from F.writs / F.activeWrit — no new saved state).
+   writStatusKind = the board lane a writ sits in; writStatusLabel = its human badge text. ----- */
+function writStatusKind(id){            // 'active' | 'judged' | 'awaiting' | 'available'
+  const w=writState(id);
+  if(F.activeWrit===id) return 'active';
+  if(w.outcome) return 'judged';
+  if(w.status==='confronted') return 'awaiting';
+  return 'available';                   // locked/open/tracked all read as "Available" on the board
+}
+function writStatusLabel(id){
+  const w=writState(id);
+  switch(writStatusKind(id)){
+    case 'active':   return 'Active';
+    case 'judged':   return (w.outcome||'').charAt(0).toUpperCase()+(w.outcome||'').slice(1); // Bound/Destroyed/Redeemed/Sealed
+    case 'awaiting': return 'Awaiting Judgment';
+    default:         return 'Available';
+  }
+}
+// Reward text + whether it's already been earned (drives a ✦ "claimed" marker on the board).
+function writRewardText(id){ const def=WRITS[id]; return def&&def.reward ? def.reward : '—'; }
+function writRewardClaimed(id){
+  // The Last Hunger's reward is the Name of the Deep; future writs can extend this map.
+  if(id==='lastHunger') return !!(F.names&&F.names.deep);
+  return !!writState(id).outcome;
+}
+// Friendly entry/destination line for a writ's expedition (falls back to its region).
+function writEntryText(id){ const def=WRITS[id]; if(!def)return ''; return (def.entryMap&&MAPNAMES[def.entryMap])||def.region||'The hollow places'; }
+/* Render one Writ as a Mystery-Dungeon-style mission card (status badge + accent stripe + facts +
+   action). All content derives from WRITS[id] + writState(id) + F.activeWrit — no new saved state.
+   Keeps toggleStats lean and gives future writs a single place to render. */
+function renderWritCard(id){
+  const def=WRITS[id], w=writState(id);
+  const kind=writStatusKind(id), active=(kind==='active');
+  let h=`<div class="objective writCard s-${kind}">`;
+  h+=`<div class="writHead"><div class="objectiveTitle" style="margin:0">${def.title}</div>`+
+     `<span class="writBadge">${writStatusLabel(id)}</span></div>`;
+  h+=`<div class="writMeta">${def.type||'Writ of Judgment'} · ${def.region||'The hollow places'}</div>`;
+  h+=`<div class="objectiveText">${def.description}</div>`;
+  if(def.accusation)h+=`<div class="flavor">The accusation: ${def.accusation}</div>`;
+  h+=`<div class="srow" style="margin-top:6px"><span>Quarry</span><b>${def.target}</b></div>`;
+  if(def.entryMap)h+=`<div class="srow"><span>Enter</span><b>${writEntryText(id)}</b></div>`;
+  if(def.objectiveType)h+=`<div class="srow"><span>Charge</span><b>${def.objectiveType==='hunt'?'Hunt &amp; Judge':def.objectiveType}</b></div>`;
+  if(def.requiredClues||w.clues.length)h+=`<div class="srow"><span>Testimony</span><b>${w.clues.length}${def.requiredClues?' / '+def.requiredClues:''}</b></div>`;
+  h+=`<div class="srow writReward"><span>Reward</span><b>${writRewardText(id)}${writRewardClaimed(id)?' ✦':''}</b></div>`;
+  if(w.outcome){
+    h+=`<div class="srow"><span>Judgment</span><b>${w.outcome.charAt(0).toUpperCase()+w.outcome.slice(1)}</b></div>`;
+    if(id==='lastHunger'&&F.companions&&F.companions.abel)
+      h+=`<div class="srow"><span>Witness freed</span><b>Abel, First Witness of the Grave</b></div>`;
+  }
+  // Testimony checklist (pre-judgment) — what to find and where.
+  if(id==='lastHunger'&&!w.outcome){
+    const checks=[['abelTestimony',"Abel's testimony (the first grave)"],
+                  ['nameGnawedGrave','Name-gnawed grave (Lower Records)'],
+                  ['hollowBiteMarks','Hollow bite marks (Gnawed Hollow)']];
+    h+=`<div class="flavor" style="margin-top:6px">Testimonies</div>`;
+    for(const [cid,label] of checks)
+      h+=`<div class="milestone">${hasWritClue(id,cid)?'✔':'□'} ${label}</div>`;
+  }
+  if(active){
+    if(id==='lastHunger'){
+      const ready=w.clues.length>=(def.requiredClues||3);
+      h+=`<div class="flavor" style="opacity:.85">${ready?'All testimony gathered — descend to the <b>Hunger Pit</b> and confront The Last Hunger.':'Descend through the <b>Lower Records</b> and the <b>Gnawed Hollow</b>. Gather testimony from Abel, the gnawed record, and the bite marks.'}</div>`;
+    } else {
+      h+=`<div class="flavor" style="opacity:.85">Expedition under way. Descend, gather testimony, and bring the matter to judgment.</div>`;
+    }
+    const foes=EXPEDITION_ENEMIES.filter(e=>e.writ===id);
+    if(foes.length)h+=`<div class="srow"><span>Hollow cleared</span><b>${writDefeatedEnemies(id).length} / ${foes.length} foes</b></div>`;
+  } else if(!w.outcome&&(w.status==='open'||w.status==='tracked'||w.status==='confronted')&&def.entryMap&&view==='world'){
+    h+=`<button onclick="beginWritFromLedger('${id.replace(/'/g,"\\'")}')">${w.status==='confronted'?'⚔ Resume Expedition':'⚑ Begin Expedition'}</button>`;
+  }
+  h+=`</div>`;
+  return h;
+}
 /* ===== Expedition / mission layer over Writs ==========================================
    A Writ carrying entry/return warp metadata can be *begun* like a Mystery-Dungeon descent.
    F.activeWrit holds the one in progress (seeded null by ensurePostgameState → old-save safe;
@@ -2420,50 +2511,26 @@ function toggleStats(){
   /* Writs of Judgment — postgame Ledger of Judgment */
   if(F.postgame||F.azazelBound){
     h+=`<h3 style="margin-top:8px">Writs of Judgment</h3>`;
-    let anyWrit=false;
+    // Gather visible (unlocked) writs; first sighting opens a locked writ (+saves), then render
+    // them as a mission board: actionable lanes first (active → awaiting → available → judged).
+    const writIds=[];
     for(const id in WRITS){ const def=WRITS[id];
       if(def.unlock&&!def.unlock())continue;
-      const w=writState(id); if(w.status==='locked')unlockWrit(id); // first sighting opens it (+saves)
-      anyWrit=true;
-      const active=(F.activeWrit===id);
-      const sl=w.status.charAt(0).toUpperCase()+w.status.slice(1);
-      h+=`<div class="objective"><div class="objectiveTitle">${def.title} · ${sl}${active?' · <span style="color:#e8c270">Active</span>':''}</div>`;
-      h+=`<div class="objectiveText">Target: ${def.target}.</div>`;
-      h+=`<div class="flavor">${def.description}</div>`;
-      h+=`<div class="srow"><span>Region</span><b>${def.region}</b></div>`;
-      if(def.objectiveType)h+=`<div class="srow"><span>Charge</span><b>${def.objectiveType==='hunt'?'Hunt &amp; Judge':def.objectiveType}</b></div>`;
-      h+=`<div class="srow"><span>Clues</span><b>${w.clues.length}${def.requiredClues?' / '+def.requiredClues:''}</b></div>`;
-      h+=`<div class="srow"><span>Reward</span><b>${def.reward}</b></div>`;
-      const expLabel = w.outcome ? 'Complete' : active ? 'In progress' : (w.status==='confronted'?'Awaiting judgment':'Ready');
-      h+=`<div class="srow"><span>Expedition</span><b>${expLabel}</b></div>`;
-      if(w.outcome)
-        h+=`<div class="srow"><span>Outcome</span><b>${w.outcome.charAt(0).toUpperCase()+w.outcome.slice(1)}</b></div>`;
-      if(id==='lastHunger'&&F.names&&F.names.deep)
-        h+=`<div class="srow"><span>Name gained</span><b>Name of the Deep</b></div>`;
-      if(id==='lastHunger'&&F.companions&&F.companions.abel)
-        h+=`<div class="srow"><span>Witness</span><b>Abel, First Witness of the Grave</b></div>`;
-      // Last Hunger: testimony checklist (pre-completion) so the player knows what to find and where.
-      if(id==='lastHunger'&&!w.outcome){
-        const checks=[['abelTestimony',"Abel's testimony (the first grave)"],
-                      ['nameGnawedGrave','Name-gnawed grave (Lower Records)'],
-                      ['hollowBiteMarks','Hollow bite marks (Gnawed Hollow)']];
-        h+=`<div class="flavor" style="margin-top:6px">Testimonies</div>`;
-        for(const [cid,label] of checks)
-          h+=`<div class="milestone">${hasWritClue(id,cid)?'✔':'□'} ${label}</div>`;
-      }
-      if(active){
-        const ready = def.requiredClues ? (w.clues.length>=def.requiredClues) : true;
-        h+=`<div class="flavor" style="opacity:.85">${ready?'All testimony gathered — descend to the <b>Hunger Pit</b> and confront The Last Hunger.':'Descend through the <b>Lower Records</b> and the <b>Gnawed Hollow</b>. Gather testimony from Abel, the gnawed record, and the bite marks.'}</div>`;
-        const foes=EXPEDITION_ENEMIES.filter(e=>e.writ===id);
-        if(foes.length){
-          const felled=writDefeatedEnemies(id).length;
-          h+=`<div class="srow"><span>Hollow cleared</span><b>${felled} / ${foes.length} foes</b></div>`;
-        }
-      } else if(!w.outcome&&(w.status==='open'||w.status==='tracked'||w.status==='confronted')&&def.entryMap&&view==='world')
-        h+=`<button onclick="beginWritFromLedger('${id.replace(/'/g,"\\'")}')">${w.status==='confronted'?'Resume Expedition':'Begin Expedition'}</button>`;
-      h+=`</div>`;
+      const w=writState(id); if(w.status==='locked')unlockWrit(id);
+      writIds.push(id);
     }
-    if(!anyWrit)h+=`<div class="arts">No writs are open. The ledger waits.</div>`;
+    if(!writIds.length){
+      h+=`<div class="arts">No writs are open. The ledger waits in the dark.</div>`;
+    } else {
+      const lane={active:0,awaiting:1,available:2,judged:3};
+      writIds.sort((a,b)=>lane[writStatusKind(a)]-lane[writStatusKind(b)]);
+      const openCount=writIds.filter(id=>writStatusKind(id)!=='judged').length;
+      const doneCount=writIds.length-openCount;
+      h+=`<div class="writMeta" style="margin:0 0 6px">${openCount} open · ${doneCount} judged</div>`;
+      for(const id of writIds)h+=renderWritCard(id);
+      if(!openCount)
+        h+=`<div class="arts">Every writ before you is sealed. The Ledger is patient; more accusations will rise from the deep.</div>`;
+    }
     /* Witnesses — redeemed companions that may travel with Metatron on expeditions (Sprint 4). */
     const wits=unlockedCompanions();
     h+=`<h3 style="margin-top:8px">Witnesses</h3>`;
