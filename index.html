@@ -312,7 +312,7 @@ function currentMusicKey(){
   if(view==='title')return 'title';
   if(view==='battle')return (B&&B.def&&B.def.boss)?'boss':'battle';
   if(P.map==='earth')return era()?'earth_corrupt':'earth';
-  const mk=(P.map&&P.map.startsWith('sheol'))?'sheol':P.map; // deeper Sheol maps share the Sheol theme
+  const mk=(P.map&&P.map.startsWith('sheol'))?'sheol':(P.map&&P.map.startsWith('dudael'))?'dudael':P.map; // deeper descent maps share their region's theme
   return MUSIC_TRACKS[mk]?mk:'earth';
 }
 // Start (or cross-fade to) the instrumental track for `key`. The previous track is
@@ -1375,7 +1375,7 @@ function tileDetail(t,wx,wy,time){
     const up=nbT(wx,wy,0,-1);
     // 2) rubble shed from walls onto the floor at their feet
     if('R#MX'.includes(up)&&hash(wx*7,wy*11)>.5){
-      const c=CURMAP==='dudael'?['#a8804a','#8a6634']
+      const c=CURMAP.startsWith('dudael')?['#a8804a','#8a6634']
             :CURMAP.startsWith('sheol')?['#322a44','#241e34']:['#6a6675','#4c4854'];
       ctx.fillStyle=c[0];
       ctx.fillRect(3+hash(wx,wy)*8,2+hash(wx*3,wy)*3,4,3);
@@ -1386,7 +1386,7 @@ function tileDetail(t,wx,wy,time){
       ctx.fillRect(3+hash(wx,wy)*8,2+hash(wx*3,wy)*3,4,1);
     }
     // 3) moss creeping from the wall base onto the floor
-    if('R#'.includes(up)&&CURMAP!=='dudael'&&hash(wx*13,wy*3)>.62){
+    if('R#'.includes(up)&&!CURMAP.startsWith('dudael')&&hash(wx*13,wy*3)>.62){
       ctx.fillStyle=CURMAP.startsWith('sheol')?'rgba(42,58,72,0.85)':'rgba(92,108,70,0.85)';
       ctx.fillRect(6+hash(wx,wy*11)*14,0,5,2);
       ctx.fillRect(9+hash(wx*9,wy)*12,2,3,2);
@@ -1553,7 +1553,7 @@ function drawTile(t,sx,sy,wx,wy,time){
       }
       break;
     }
-    if(CURMAP==='dudael'){ // sun-baked sandstone ruin
+    if(CURMAP.startsWith('dudael')){ // sun-baked sandstone ruin
       masonry(sx,sy,wx,wy,MAS_DUDAEL,time);
       break;
     }
@@ -1863,6 +1863,24 @@ sheolHunger: mkmap([
 "#DDDDDDDDDDDDDDDD#",
 "##################",
 ]),
+/* ----- Postgame "Ashes of Azazel" expedition (second Writ; writ-only ash hollow under Dudael).
+   Dudael tiles: 'R' sandstone walls + 'd' ash floor (renders via MAS_DUDAEL once the dudael style
+   checks are broadened to startsWith('dudael')); 'E' marks ash-fires still burning from Azazel's
+   forge-craft, 'O' bleached relics. Corridor row y=5 open at the west edge (the back-warp doorway);
+   the east edge stays walled — the deepest end, where the unquenchable forge (the boss lair) sits. */
+dudaelAshes: mkmap([
+"RRRRRRRRRRRRRRRRRR",
+"RddddddddddddddddR",
+"RddEdddOOdddEddddR",
+"RddddddddddddddddR",
+"RddddddddddddddddR",
+"dddddddddddddddddR",
+"RddddddddddddddddR",
+"RddddddddddddddddR",
+"RddddddddddddddddR",
+"RddEddddddddddEddR",
+"RRRRRRRRRRRRRRRRRR",
+]),
 heaven: mkmap([
 "XXXXXXXXXXXXXX",
 "X*****cc*****X",
@@ -1921,9 +1939,10 @@ dudael: mkmap([
 };
 const MAPNAMES={earth:"Jared's Valley", hermon:"Mount Hermon", sheol:"Sheol — the Hollow Places",
   heaven:"The Heavens", throne:"The Throne of Glory", dudael:"The Desert of Dudael",
-  sheolRecords:"Sheol — The Lower Records", sheolGnawed:"Sheol — The Gnawed Hollow", sheolHunger:"Sheol — The Hunger Pit"};
+  sheolRecords:"Sheol — The Lower Records", sheolGnawed:"Sheol — The Gnawed Hollow", sheolHunger:"Sheol — The Hunger Pit",
+  dudaelAshes:"Dudael — The Ash Hollow"};
 const ARENAS={earth:'field',hermon:'mountain',sheol:'abyss',heaven:'sky',throne:'sky',dudael:'desert',
-  sheolRecords:'abyss',sheolGnawed:'abyss',sheolHunger:'abyss'};
+  sheolRecords:'abyss',sheolGnawed:'abyss',sheolHunger:'abyss',dudaelAshes:'desert'};
 
 /* warps: stepping onto (x,y) of map -> dest */
 const WARPS=[
@@ -1940,6 +1959,10 @@ const WARPS=[
   {map:'sheolGnawed',x:0,y:5,to:'sheolRecords',tx:16,ty:5,face:'left'},
   {map:'sheolGnawed',x:17,y:5,to:'sheolHunger',tx:1,ty:5,face:'right',cond:()=>lastHungerActive()},
   {map:'sheolHunger',x:0,y:5,to:'sheolGnawed',tx:16,ty:5,face:'left'},
+  // Ashes of Azazel descent: a fissure of ash at the SE edge of the Sheol hub drops to Dudael's ash
+  // hollow. Forward warp is writ-only; the back warp is always open so the player can never be stranded.
+  {map:'sheol',x:20,y:11,to:'dudaelAshes',tx:1,ty:5,face:'right',cond:()=>ashesAzazelActive()},
+  {map:'dudaelAshes',x:0,y:5,to:'sheol',tx:19,ty:11,face:'left'},
   {map:'heaven',x:6,y:1,to:'throne',tx:5,ty:10,face:'up',cond:()=>(F.gate1&&F.gate2&&F.gate3)||F.throneSeen},
   {map:'heaven',x:7,y:1,to:'throne',tx:6,ty:10,face:'up',cond:()=>(F.gate1&&F.gate2&&F.gate3)||F.throneSeen},
 ];
@@ -2053,7 +2076,8 @@ const LOC_SUBS={earth:'Where the sons of men multiply',hermon:'The summit of the
   sheol:'The hollow places beneath',heaven:'The seven heavens',throne:'Before the Most High',
   dudael:'The desert of the damned',
   sheolRecords:'Where the names of the dead are kept',sheolGnawed:'Something has been eating here',
-  sheolHunger:'The bottom of the world, and below it'};
+  sheolHunger:'The bottom of the world, and below it',
+  dudaelAshes:'Where the forbidden arts were taught'};
 function showLocBanner(name){
   const el=$('locBanner');
   el.querySelector('.locName').textContent=name;
@@ -2137,6 +2161,20 @@ const WRITS={
     returnMap:'sheol', returnX:2, returnY:7, returnFace:'right',
     objectiveType:'hunt', requiredClues:3, boss:'lastHunger',
     unlock:()=>F.azazelBound||F.postgame
+  },
+  ashesAzazel:{
+    id:'ashesAzazel', title:'The Ashes of Azazel',
+    target:'The living residue of Azazel’s forbidden teachings, burning on in the ash hollow',
+    type:'Forbidden Residue', region:'Dudael — The Ash Hollow', recommended:'Raphael',
+    reward:'Name of the Chain',
+    description:'Azazel is bound under the rocks of Dudael, but the arts he taught did not drown in the Flood. In an ash hollow beneath the desert, his lessons burn on without a teacher — and a lesson with no master will find new pupils.',
+    accusation:'The works that were taught by Azazel — the blade, the painted lie, the bloodcraft — enduring as living knowledge after their teacher was sealed.',
+    // Entry/return through the Sheol Ledger hub (2,7), like The Last Hunger: heaven/throne/dudael are
+    // cutscene-only islands, so the writ is reached by the ash-fissure warp at the SE of the hub.
+    entryMap:'sheol', entryX:2, entryY:7, entryFace:'right',
+    returnMap:'sheol', returnX:2, returnY:7, returnFace:'right',
+    objectiveType:'hunt', requiredClues:3, boss:'ashesAzazel',
+    unlock:()=>F.azazelBound||F.postgame
   }
 };
 function writState(id){
@@ -2170,8 +2208,9 @@ function writStatusLabel(id){
 // Reward text + whether it's already been earned (drives a ✦ "claimed" marker on the board).
 function writRewardText(id){ const def=WRITS[id]; return def&&def.reward ? def.reward : '—'; }
 function writRewardClaimed(id){
-  // The Last Hunger's reward is the Name of the Deep; future writs can extend this map.
+  // Each writ's reward is a Name; extend this map as writs are added.
   if(id==='lastHunger') return !!(F.names&&F.names.deep);
+  if(id==='ashesAzazel') return !!(F.names&&F.names.chain);
   return !!writState(id).outcome;
 }
 // Friendly entry/destination line for a writ's expedition (falls back to its region).
@@ -2207,10 +2246,21 @@ function renderWritCard(id){
     for(const [cid,label] of checks)
       h+=`<div class="milestone">${hasWritClue(id,cid)?'✔':'□'} ${label}</div>`;
   }
+  if(id==='ashesAzazel'&&!w.outcome){
+    const checks=[['brokenBlade','The broken blade (the first art)'],
+                  ['paintedOrnament','The painted eye (the second art)'],
+                  ['boundRemnant','The bound watcher-remnant (the third art)']];
+    h+=`<div class="flavor" style="margin-top:6px">Testimonies</div>`;
+    for(const [cid,label] of checks)
+      h+=`<div class="milestone">${hasWritClue(id,cid)?'✔':'□'} ${label}</div>`;
+  }
   if(active){
     if(id==='lastHunger'){
       const ready=w.clues.length>=(def.requiredClues||3);
       h+=`<div class="flavor" style="opacity:.85">${ready?'All testimony gathered — descend to the <b>Hunger Pit</b> and confront The Last Hunger.':'Descend through the <b>Lower Records</b> and the <b>Gnawed Hollow</b>. Gather testimony from Abel, the gnawed record, and the bite marks.'}</div>`;
+    } else if(id==='ashesAzazel'){
+      const ready=w.clues.length>=(def.requiredClues||3);
+      h+=`<div class="flavor" style="opacity:.85">${ready?'All three arts are named — go to the deepest end of the <b>Ash Hollow</b>, where the forge will not go cold, and judge the lesson.':'Take the ash-fissure at the SE edge of the Sheol hub down to the <b>Ash Hollow</b>. Examine the broken blade, the painted eye, and the bound watcher-remnant.'}</div>`;
     } else {
       h+=`<div class="flavor" style="opacity:.85">Expedition under way. Descend, gather testimony, and bring the matter to judgment.</div>`;
     }
@@ -2265,6 +2315,11 @@ function endWritMission(id,outcome){
 function lastHungerActive(){ return !!F.postgame && isWritMissionActive('lastHunger'); }
 function lastHungerClueCount(){ return writState('lastHunger').clues.length; }
 function lastHungerReady(){ const def=WRITS.lastHunger; return lastHungerActive() && lastHungerClueCount()>=(def.requiredClues||3); }
+/* ----- The Ashes of Azazel: second expedition (Dudael ash hollow). Same shape as The Last Hunger,
+   gated on postgame + its own active writ, so nothing here ever touches the campaign or the first writ. */
+function ashesAzazelActive(){ return !!F.postgame && isWritMissionActive('ashesAzazel'); }
+function ashesAzazelClueCount(){ return writState('ashesAzazel').clues.length; }
+function ashesAzazelReady(){ const def=WRITS.ashesAzazel; return ashesAzazelActive() && ashesAzazelClueCount()>=(def.requiredClues||3); }
 /* ===== Expedition enemies (Sprint 3B) =================================================
    Visible on-map foes inside a Writ expedition's descent maps. Purely declarative; they
    reuse the existing ENEMIES battle keys (no new art / combat) and are gated on the owning
@@ -2282,6 +2337,13 @@ const EXPEDITION_ENEMIES=[
    note:'A second shade gnaws at the edge of the hollow. It notices you.'},
  {id:'hun_spawn', writ:'lastHunger', map:'sheolHunger',  x:8,  y:5, key:'spawn', pal:'ohya', face:'left',
    note:'A hungering spawn of the Pit drops into the corridor, blocking the deep.'},
+ // The Ashes of Azazel — forbidden-art remnants haunting the ash hollow (reuse existing battle keys).
+ {id:'ash_shade', writ:'ashesAzazel', map:'dudaelAshes', x:7,  y:5, key:'shade', pal:'soul', face:'down',
+   note:'A shade of cold forge-smoke gathers across the corridor, shaped like a man bent over an anvil.'},
+ {id:'ash_beast', writ:'ashesAzazel', map:'dudaelAshes', x:11, y:7, key:'beast', pal:'ohya', face:'left',
+   note:'A thing assembled from cast-off blades and bone drags itself out of the ash and rounds on you.'},
+ {id:'ash_spawn', writ:'ashesAzazel', map:'dudaelAshes', x:12, y:5, key:'spawn', pal:'ohya', face:'left',
+   note:'A half-formed pupil of the forbidden arts lurches into the corridor, still trying to learn what it is.'},
 ];
 // Lazily-initialised per-writ list of defeated enemy ids (old saves lack the field).
 function writDefeatedEnemies(writId){ const w=writState(writId); if(!Array.isArray(w.defeatedEnemies))w.defeatedEnemies=[]; return w.defeatedEnemies; }
@@ -2312,6 +2374,25 @@ async function discoverLastHungerClue(id,text,sayName){
     if(w.clues.length>=needed && w.status!=='confronted'){
       w.status='confronted'; saveGame();
       await note('The Writ warms in your hand. The Last Hunger has been named enough to answer. Descend to the deep east, where Ohya once squatted, and end it.');
+    }
+  }
+  updateHUD();
+  return true;
+}
+/* The Ashes of Azazel clue discovery — same contract as discoverLastHungerClue, scoped to its writ:
+   shows the testimony once, records it, reports progress, and flips the writ to 'confronted' on the
+   final clue. Returns false when the writ isn't active (so the inspect can fall back to plain scenery). */
+async function discoverAshesClue(id,text,sayName){
+  if(!ashesAzazelActive())return false;
+  const already=hasWritClue('ashesAzazel',id);
+  if(sayName)await say(sayName,text); else await note(text);
+  if(!already){
+    addWritClue('ashesAzazel',id);
+    const w=writState('ashesAzazel'), needed=WRITS.ashesAzazel.requiredClues||3;
+    await note('<b>Testimony recorded.</b> '+w.clues.length+' / '+needed+'.');
+    if(w.clues.length>=needed && w.status!=='confronted'){
+      w.status='confronted'; saveGame();
+      await note('The Writ darkens at the edges, scorched. The lesson has been named for what it is. Go to the deepest end of the hollow, where the forge will not go cold, and read judgment over it.');
     }
   }
   updateHUD();
@@ -2361,6 +2442,19 @@ function currentObjective(){
           short:"Confront The Last Hunger",
           flavor:"It has no mouth until it remembers yours.",
           map:"Sheol — The Hunger Pit"};
+      }
+      if(F.activeWrit==='ashesAzazel'){
+        const wa=writState('ashesAzazel'), need=aw.requiredClues||3, have=wa.clues.length;
+        if(have<need) return {chapter:"Postgame", title:aw.title,
+          objective:"Take the ash-fissure at the SE edge of the Sheol hub down to the Ash Hollow, and examine the three forbidden arts.",
+          short:"Name the arts: "+have+" / "+need,
+          flavor:aw.accusation||aw.description,
+          map:"Dudael — The Ash Hollow"};
+        return {chapter:"Postgame", title:aw.title,
+          objective:"Go to the deepest end of the Ash Hollow and judge the lesson that would not die.",
+          short:"Judge the Lesson",
+          flavor:"A lesson with no master will find new pupils.",
+          map:"Dudael — The Ash Hollow"};
       }
       return {chapter:"Postgame", title:aw.title,
         objective:"Investigate "+aw.title+" in "+(aw.region||"the hollow places")+". Descend, learn what the dead remember, and bring the matter to judgment.",
@@ -2579,6 +2673,13 @@ window.beginWritFromLedger=function(id){
         await note('Seek three testimonies: <b>Abel at the first grave</b>, the <b>name-gnawed record</b> in the Lower Records, and the <b>bite marks</b> in the Gnawed Hollow.');
         await note('Descend past Ohya\'s wound, in the deep east of Sheol. When the Ledger holds all three, go on to the <b>Hunger Pit</b>; the hunger will answer there.');
       }
+    } else if(id==='ashesAzazel'){
+      if(ashesAzazelClueCount()>=(WRITS.ashesAzazel.requiredClues||3)){
+        await note('The arts are all named. Take the <b>ash-fissure</b> at the SE edge of this hollow down to the Ash Hollow, and go to the deepest end, where the forge will not go cold.');
+      } else {
+        await note('Seek three forbidden arts in the Ash Hollow: the <b>broken blade</b>, the <b>painted eye</b>, and the <b>bound watcher-remnant</b> chained to a pillar.');
+        await note('Take the <b>ash-fissure</b> at the SE edge of the Sheol hub down to Dudael\'s Ash Hollow. When the Ledger holds all three arts, go to the deepest end; the lesson will answer at the forge.');
+      }
     } else {
       await note('Metatron descends under writ of judgment. The Ledger is open; the hollow will answer.');
     }
@@ -2654,6 +2755,11 @@ const ENEMIES={
  lastHunger:{name:'THE LAST HUNGER',type:'Corruption',hp:140,art:'spawn',xp:0,boss:true,
    moves:[{n:'Name-Bite',d:[7,11]},{n:'Second Death',d:[8,13],status:'corrupt'},{n:'Devour Testimony',d:[6,10],drain:true},{n:'Empty Grave',status:'dread'}],
    intro:'Something below Ohya’s hunger unfolds in the dark. It has no mouth until it remembers yours.'},
+ // Postgame Writ boss (The Ashes of Azazel). xp:0 — the reward is the judgment, not leveling. The
+ // residue of the forbidden arts given shape; reuses Azazel's battle art. Profane → holy judgment bites.
+ ashesAzazel:{name:'THE LESSON THAT WOULD NOT DIE',type:'Profane',hp:135,art:'azazel',xp:0,boss:true,
+   moves:[{n:'Edge of the Teaching',d:[7,11]},{n:'The Painted Lie',d:[6,10],status:'corrupt'},{n:'Bloodcraft',d:[6,9],drain:true},{n:'Curriculum of Despair',status:'dread'}],
+   intro:'The forge-fire stands up without a body. Every blade Azazel ever taught the world to make is remembered in it at once. <b>It has no teacher now. It is looking for one.</b>'},
 };
 let B=null; // battle state
 function blog(t){$('bLog').innerHTML=t;}
@@ -3455,6 +3561,9 @@ const PROPS=[
  {map:'sheol',x:5,y:7,t:'chain',tall:1,vis:()=>F.postgame},
  // Postgame marker where Ohya stood — the descent begins here (hidden during the campaign).
  {map:'sheol',x:17,y:7,t:'wound',tall:1,vis:()=>F.postgame},
+ // Postgame: the ash-fissure at the SE edge of the hub — a forge-glow leaking up from Dudael's ash
+ // hollow, marking the descent for The Ashes of Azazel (non-solid so the warp at 20,11 stays open).
+ {map:'sheol',x:20,y:11,t:'brazier',tall:1,vis:()=>F.postgame},
  // Postgame path-dressing: a torch-lit ritual road from the Ledger-fire chamber (2,9) east toward
  // the descent (the wound at 17,7 / the warp at 20,7). All vis-gated on F.postgame so the campaign
  // Sheol is untouched. The walking lane is row 7 — kept clear end to end: braziers/stalags below are
@@ -3510,6 +3619,16 @@ const PROPS=[
  {map:'throne',x:5,y:8,t:'rune'},{map:'throne',x:6,y:8,t:'rune'},
  {map:'dudael',x:4,y:8,t:'rubble'},{map:'dudael',x:13,y:4,t:'rubble'},
  {map:'dudael',x:11,y:8,t:'skull'},{map:'dudael',x:5,y:3,t:'skull'},
+ // The Ashes of Azazel — Dudael ash hollow (writ-only map; props always present since the map is
+ // only ever reached during the active expedition). Corridor row y=5 stays clear x=1..15; the forge
+ // (boss lair) caps the walled east end at (16,5). Clue anchors are solid pillars the player faces.
+ {map:'dudaelAshes',x:5,y:3,t:'pillar',tall:1,solid:1},   // broken blade leans here
+ {map:'dudaelAshes',x:12,y:3,t:'pillar',tall:1,solid:1},  // painted eye / ornament
+ {map:'dudaelAshes',x:8,y:8,t:'pillar',tall:1,solid:1},   // bound watcher-remnant
+ {map:'dudaelAshes',x:16,y:5,t:'brazier',tall:1,solid:1}, // the forge that will not go cold (boss lair)
+ {map:'dudaelAshes',x:1,y:5,t:'rune'},{map:'dudaelAshes',x:1,y:4,t:'pillar',tall:1,solid:1},{map:'dudaelAshes',x:1,y:6,t:'pillar',tall:1,solid:1},
+ {map:'dudaelAshes',x:3,y:3,t:'brazier',tall:1,solid:1},{map:'dudaelAshes',x:14,y:8,t:'brazier',tall:1,solid:1},
+ {map:'dudaelAshes',x:4,y:8,t:'rubble'},{map:'dudaelAshes',x:13,y:3,t:'rubble'},{map:'dudaelAshes',x:7,y:2,t:'skull'},
 ];
 // A prop with an optional `vis` predicate is only present when it returns truthy
 // (used by postgame-only markers like the Ohya wound). Centralized so the three
@@ -3723,6 +3842,8 @@ const TRIGGERS=[
  {map:'sheol',cond:(x,y)=>!F.sheolSeen,run:()=>cs_sheolEnter()},
  // Postgame: reaching the lip of the Hunger Pit with all testimony gathered confronts The Last Hunger.
  {map:'sheolHunger',cond:(x,y)=>x===15&&y===5&&lastHungerReady()&&!writState('lastHunger').outcome,run:()=>cs_lastHungerConfrontation()},
+ // Postgame: reaching the forge at the deep end of the Ash Hollow with all three arts named judges the lesson.
+ {map:'dudaelAshes',cond:(x,y)=>x===15&&y===5&&ashesAzazelReady()&&!writState('ashesAzazel').outcome,run:()=>cs_ashesAzazelConfrontation()},
  {map:'heaven',cond:(x,y)=>!F.heavenSeen,run:()=>cs_heavenEnter()},
  {map:'heaven',cond:(x,y)=>y<=4&&!F.starsSeen,run:()=>cs_stars()},
  {map:'throne',cond:(x,y)=>y<=4&&!F.throneDone,run:()=>cs_throne()},
@@ -3892,6 +4013,47 @@ async function cs_lastHungerJudgment(){
   endWritMission('lastHunger',outcome); // completeWrit + clear F.activeWrit + return to Sheol mouth + saveGame
   await fadeIn(700);
   await note('<b>Writ complete: The Last Hunger.</b> The first judgment of the postgame Ledger is sealed in your hand. Open the Scribe\'s Ledger (C) to read what you wrote.');
+}
+/* The Ashes of Azazel — confrontation at the forge. Reached by stepping onto (15,5) with all three
+   arts named (a TRIGGERS entry) or by inspecting the forge at (16,5). Warns if testimony is
+   incomplete; otherwise fights, then judges. Re-entry guarded by scriptRunning + the outcome check. */
+async function cs_ashesAzazelConfrontation(){
+  if(!ashesAzazelActive())return;
+  const w=writState('ashesAzazel'); if(w.outcome)return;
+  if(ashesAzazelClueCount()<(WRITS.ashesAzazel.requiredClues||3)){
+    await note('The forge-fire flares and gutters, but it will not take shape for you yet. Name all three arts first — the blade, the painted lie, and the bound remnant — and the lesson will have to answer.');
+    return;
+  }
+  await note('You speak the three arts aloud — the edge that needs no honest use, the paint that makes the lie worth wanting, the knowledge chained up to outlive its teacher. At each name the forge-fire leans closer, gathering itself, glad to be remembered.');
+  await say('THE LESSON THAT WOULD NOT DIE','<i>(It speaks in Azazel\'s cadence, but there is no one behind it — only the shape of a teaching that refuses to be the last of its kind.)</i> You bound the master. You did not unmake the lesson. Lessons do not die, scribe. They only wait for a new pupil. <b>Teach me, or be taught.</b>');
+  const r=await startBattle('ashesAzazel');
+  if(r==='win')await cs_ashesAzazelJudgment();
+}
+async function cs_ashesAzazelJudgment(){
+  if(writState('ashesAzazel').outcome)return; // already judged — never re-apply the additive reward
+  cutscene=true;
+  await note('The fire collapses into a heap of glowing arts — blades, mirrors, charts of the stars bent toward war — all of it still warm, still wanting to be useful. It is not evil the way a beast is evil. It is evil the way a tool is sharp. The question is only what a judge does with a sharp thing.');
+  const c=await choice('What does Metatron write over the ashes?',[
+    'Bury the forbidden arts in the deep rock, with Azazel, until the great day.',
+    'Seal them in the Ledger as record — known, named, and forbidden to all who read.',
+    'Redeem one lesson into wisdom; let the rest go cold. (The star-craft becomes liturgy.)',
+    'Burn them utterly. A sharp thing left in the world will find a hand.']);
+  let outcome;
+  if(c===0){ F.names.chain=true; S.favor+=2; S.right+=1; outcome='buried';
+    await note('You command the rock of Dudael to take the arts down to where it keeps their teacher. Name gained: <b>Name of the Chain</b> — the word that binds a thing not to a place, but to a sentence already written.');
+  } else if(c===1){ F.names.chain=true; S.forbidden+=1; S.right+=1; outcome='sealed';
+    await note('You do not destroy the lesson; you <i>record</i> it — every art set down in full, and under each, the verdict. To know a thing and forbid it is a heavier keeping than to burn it. Name gained: <b>Name of the Chain</b>.');
+  } else if(c===2){ F.names.chain=true; S.right+=2; S.favor+=1; outcome='redeemed';
+    await note('You lift one lesson out of the heap — the reading of the courses of the stars — and turn it from a calendar for war into a calendar for worship, the year of three hundred sixty-four days. The rest you let go grey. Even a curriculum of ruin held one true thing, and you would not waste it. Name gained: <b>Name of the Chain</b>.');
+  } else { F.names.chain=true; S.courage+=2; S.right+=1; outcome='burned';
+    await note('You burn the arts down past ash, past memory of ash. There are mercies that look like loss. A sharp thing left in the world always finds a hand, and you have buried too many of the hands it found. Name gained: <b>Name of the Chain</b>.');
+  }
+  updateHUD();
+  cutscene=false;                       // end atomic section; the warp + writ-completion saves below
+  await fadeOut(700);
+  endWritMission('ashesAzazel',outcome); // completeWrit + clear F.activeWrit + return to Sheol hub + saveGame
+  await fadeIn(700);
+  await note('<b>Writ complete: The Ashes of Azazel.</b> The second judgment of the Ledger is sealed. The forge under Dudael is grey at last. Open the Scribe\'s Ledger (C) to read what you wrote.');
 }
 async function cs_heavenEnter(){
   cutscene=true; F.heavenSeen=true;
@@ -4135,6 +4297,36 @@ const INSPECTS=[
    if(!lastHungerActive()){ await note('A wound in the dark at the bottom of the pit. It is not breathing. That is somehow worse.'); return; }
    if(writState('lastHunger').outcome){ await note('The pit where you ended the Last Hunger. The wound has closed; the dark lies flat.'); return; }
    await cs_lastHungerConfrontation(); // warns if testimony incomplete, else fights + judges
+ }},
+ /* ----- The Ashes of Azazel (second postgame Writ). Clue inspects in dudaelAshes anchored on solid
+    pillars; the confrontation at the forge (16,5). Each clue uses discoverAshesClue (records once) and
+    falls back to plain scenery when the writ isn't active. The hollow is writ-only, so no campaign reach. */
+ {map:'sheol',x:20,y:11,run:async()=>{
+   if(ashesAzazelActive())
+     await note('The ash-fissure gapes at the edge of the hollow, breathing up heat that smells of hot iron and old smoke. Down it: the <b>Ash Hollow</b>, where Azazel taught the world to kill prettily. Descend.');
+   else if(F.postgame&&writState('ashesAzazel').outcome)
+     await note('The ash-fissure has cooled to a seam of grey glass. The lesson that burned below is sealed in your Ledger now. The forge is quiet.');
+   else if(F.postgame)
+     await note('A seam in the floor at the SE edge of the hollow leaks a forge-glow up from somewhere far beneath Dudael. Something down there is still warm — still teaching. Take up its Writ in the Ledger (C) before you descend.');
+   else
+     await note('A crack in the stone, faintly warm, breathing up a smell of iron. Nothing is written here yet.');
+ }},
+ {map:'dudaelAshes',x:5,y:3,run:async()=>{
+   if(!(await discoverAshesClue('brokenBlade','A blade lies broken across the ash — bronze folded the way only Azazel taught, to take an edge no honest tool needs. Snapped in two, and yet the ash around it is scored fresh, as though it has been used since it broke. A lesson does not need a whole sword. It only needs to be remembered.')))
+     await note('A broken bronze blade, half-buried in the ash, its workmanship far older and far crueller than its makers.');
+ }},
+ {map:'dudaelAshes',x:12,y:3,run:async()=>{
+   if(!(await discoverAshesClue('paintedOrnament','A woman\'s ornament, and a fragment of a painted eye worked in antimony and malachite — the colours Azazel taught for the painting of the face, the bracelets, the costly stones. Not the sin itself, but the craft of making the lie beautiful enough to want. The paint is wet. No hand has touched it in a thousand years.')))
+     await note('A scrap of ornament and a painted eye, the cosmetic arts of the Watchers, their colours somehow undimmed.');
+ }},
+ {map:'dudaelAshes',x:8,y:8,run:async()=>{
+   if(!(await discoverAshesClue('boundRemnant','Chained to the pillar is a remnant — not a watcher, not a man: a knot of cold knowledge wearing the shape of a pupil, bound here so the teaching could outlive the teacher. It does not beg. It recites. Enchantments, root-cuttings, the reading of the stars for war. It has been reciting to the empty dark for an age, waiting for someone to write it down.','THE BOUND REMNANT')))
+     await note('Something is chained to the pillar — a husk of forbidden knowledge, mouthing a lesson to no one.');
+ }},
+ {map:'dudaelAshes',x:16,y:5,run:async()=>{
+   if(!ashesAzazelActive()){ await note('A forge-fire at the dead end of the hollow, burning with no fuel and no smith. It leans toward you, the way a question leans toward an answer.'); return; }
+   if(writState('ashesAzazel').outcome){ await note('The forge where you judged the lesson. The fire has gone to grey ash at last, and stays grey.'); return; }
+   await cs_ashesAzazelConfrontation(); // warns if testimony incomplete, else fights + judges
  }},
  {map:'heaven',x:4,y:6,run:async()=>{
    if(F.metatron) await note('A banner of the host. Your own new name is worked into its hem now, among the seventy, in a thread that was not there an hour ago. It still startles you to find yourself written here.');
