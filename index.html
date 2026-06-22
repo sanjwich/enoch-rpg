@@ -3693,7 +3693,7 @@ function drawProp(p,time){
   case 'rubble':{
     ctx.fillStyle='rgba(0,0,0,0.18)';
     ctx.beginPath();ctx.ellipse(sx+16,sy+25,13,4,0,0,7);ctx.fill();
-    const cols=CURMAP==='dudael'?['#b8854a','#96672f','#c29457']:['#6a6675','#5c5866','#787489'];
+    const cols=CURMAP.startsWith('dudael')?['#b8854a','#96672f','#c29457']:['#6a6675','#5c5866','#787489'];
     [[6,20,7,5],[15,22,9,5],[23,18,6,5],[11,16,6,4],[19,24,5,3]].forEach((r,i)=>{
       ctx.fillStyle=cols[i%3];
       ctx.fillRect(sx+r[0],sy+r[1],r[2],r[3]);
@@ -4600,6 +4600,7 @@ function moodKey(){
   if(view==='title')return 'title';
   if(P.map==='earth')return era()?'earth_corrupt':'earth';
   if(P.map&&P.map.startsWith('sheol'))return 'sheol';   // incl. the deeper descent maps
+  if(P.map&&P.map.startsWith('dudael'))return 'dudael';  // incl. the Ash Hollow expedition map
   return MOOD[P.map]?P.map:'earth';
 }
 function curMood(){ return MOOD[moodKey()]||MOOD.earth; }
@@ -4783,7 +4784,7 @@ function ambient(time){
         spawnP({x:rnd(0,CW),y:CH+4,vx:rnd(-.25,.25),vy:rnd(-1.2,-.5),size:1.6,color:'rgba(255,150,70,0.7)',decay:.01,screen:true});
     }
   }
-  else if(P.map==='dudael')spawnP({x:-4,y:rnd(CH*0.2,CH),vx:rnd(.8,1.6),vy:rnd(-.15,.15),size:2,color:'rgba(220,180,120,0.7)',decay:.007,screen:true});
+  else if(P.map&&P.map.startsWith('dudael'))spawnP({x:-4,y:rnd(CH*0.2,CH),vx:rnd(.8,1.6),vy:rnd(-.15,.15),size:2,color:'rgba(220,180,120,0.7)',decay:.007,screen:true});
   else if(P.map==='heaven'||P.map==='throne')spawnP({x:rnd(0,CW),y:rnd(0,CH),vx:0,vy:rnd(-.3,-.1),size:2,color:'#fff6d8',decay:.01,screen:true});
 }
 function drawParticles(layer){
