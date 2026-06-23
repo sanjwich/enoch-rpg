@@ -2215,6 +2215,18 @@ function writRewardClaimed(id){
 }
 // Friendly entry/destination line for a writ's expedition (falls back to its region).
 function writEntryText(id){ const def=WRITS[id]; if(!def)return ''; return (def.entryMap&&MAPNAMES[def.entryMap])||def.region||'The hollow places'; }
+/* Read-only postgame Ledger summary across ALL known writs (safe to call every frame from
+   currentObjective/HUD — no saving, no warps). `avail` = unlocked writs not yet judged (can be
+   taken up or resumed); `judged` = sealed writs. Drives mission-board-aware idle guidance so the
+   objective/Ledger-fire speak about whichever writs exist, not just The Last Hunger. */
+function postgameWritSummary(){
+  const avail=[], judged=[];
+  for(const id in WRITS){ const def=WRITS[id];
+    if(def.unlock&&!def.unlock())continue;
+    if(writState(id).outcome) judged.push(id); else avail.push(id);
+  }
+  return {avail,judged};
+}
 /* Render one Writ as a Mystery-Dungeon-style mission card (status badge + accent stripe + facts +
    action). All content derives from WRITS[id] + writState(id) + F.activeWrit — no new saved state.
    Keeps toggleStats lean and gives future writs a single place to render. */
@@ -2462,16 +2474,25 @@ function currentObjective(){
         flavor:aw.accusation||aw.description,
         map:aw.region||"Sheol — the hollow places"};
     }
-    const w=F.writs&&F.writs.lastHunger;
-    if(w&&(w.status==='open'||w.status==='tracked')) return {chapter:"Postgame", title:"The Ledger of Judgment",
-      objective:"Open the Scribe's Ledger (press C) and begin a Writ of Judgment: The Last Hunger.",
-      short:"Begin the first Writ",
+    // No active expedition — speak about the whole Ledger board, not just The Last Hunger.
+    const sum=postgameWritSummary();
+    if(sum.avail.length===1){
+      const def=WRITS[sum.avail[0]];
+      return {chapter:"Postgame", title:"The Ledger of Judgment",
+        objective:"Open the Scribe's Ledger (press C) and take up a Writ of Judgment: "+def.title+".",
+        short:"Begin a Writ: "+def.title,
+        flavor:def.accusation||def.description||"The work does not end; it only changes hands.",
+        map:"Sheol — the Ledger-fire"};
+    }
+    if(sum.avail.length>1) return {chapter:"Postgame", title:"The Ledger of Judgment",
+      objective:"Open the Scribe's Ledger (press C). "+sum.avail.length+" Writs of Judgment await — take one up and descend: "+sum.avail.map(id=>WRITS[id].title).join(", ")+".",
+      short:sum.avail.length+" Writs await judgment",
       flavor:"The Flood cleansed the face of the earth, but not every hunger drowned.",
-      map:"Sheol — the hollow places"};
-    if(w&&w.outcome) return {chapter:"Postgame", title:"The Ledger of Judgment",
-      objective:"The first Writ is sealed. Await another judgment.",
-      short:"First Writ sealed",
-      flavor:"One hunger answered. The Ledger is patient; there will be others.",
+      map:"Sheol — the Ledger-fire"};
+    if(sum.judged.length) return {chapter:"Postgame", title:"The Ledger of Judgment",
+      objective:"Every Writ before you is sealed. Await another accusation from the deep.",
+      short:"All Writs sealed",
+      flavor:"The work does not end; it only changes hands. More hungers will stir beneath the world.",
       map:"Sheol — the hollow places"};
     return {chapter:"Postgame", title:"The Ledger of Judgment",
       objective:"Open the Scribe's Ledger (press C) and begin a Writ of Judgment.",
@@ -3564,6 +3585,23 @@ const PROPS=[
  // Postgame: the ash-fissure at the SE edge of the hub — a forge-glow leaking up from Dudael's ash
  // hollow, marking the descent for The Ashes of Azazel (non-solid so the warp at 20,11 stays open).
  {map:'sheol',x:20,y:11,t:'brazier',tall:1,vis:()=>F.postgame},
+ // Forge-shrine dressing around the ash-fissure so the second-Writ descent reads at a glance: scorched
+ // pillars cap the alcove, a warm brazier lights the approach, hanging chains + ash rubble fill the mouth,
+ // and a non-solid ash-glyph trail runs in from the road's east end. ALL vis-gated on F.postgame so the
+ // campaign Sheol is untouched. The warp tile (20,11) carries only the non-solid brazier above; the west
+ // approach lane (18,11)->(19,11)->fissure stays clear, and (19,11) — the back-warp landing + the tile the
+ // player faces to read the fissure inspect — is a non-solid rune (never blocked). (19,10) is the existing
+ // campaign brazier; nothing here duplicates it.
+ {map:'sheol',x:20,y:9,t:'pillar',tall:1,solid:1,vis:()=>F.postgame},   // scorched pillar — N cap of the alcove
+ {map:'sheol',x:19,y:12,t:'pillar',tall:1,solid:1,vis:()=>F.postgame},  // scorched pillar — SW post
+ {map:'sheol',x:18,y:12,t:'brazier',tall:1,solid:1,vis:()=>F.postgame}, // forge-brazier lighting the approach
+ {map:'sheol',x:20,y:10,t:'chain',tall:1,vis:()=>F.postgame},           // chain hung over the fissure mouth (overhead)
+ {map:'sheol',x:20,y:12,t:'rubble',vis:()=>F.postgame},                 // ash heap south of the fissure
+ {map:'sheol',x:19,y:11,t:'rune',vis:()=>F.postgame},                   // threshold ash-glyph (back-warp landing / inspect-facing tile)
+ {map:'sheol',x:18,y:11,t:'rune',vis:()=>F.postgame},                   // ash-glyph trail
+ {map:'sheol',x:18,y:10,t:'rune',vis:()=>F.postgame},                   // ash-glyph trail
+ {map:'sheol',x:18,y:9,t:'rune',vis:()=>F.postgame},                    // ash-glyph trail up toward the road
+ {map:'sheol',x:17,y:9,t:'rubble',vis:()=>F.postgame},                  // ash drift connecting from the road's east end
  // Postgame path-dressing: a torch-lit ritual road from the Ledger-fire chamber (2,9) east toward
  // the descent (the wound at 17,7 / the warp at 20,7). All vis-gated on F.postgame so the campaign
  // Sheol is untouched. The walking lane is row 7 — kept clear end to end: braziers/stalags below are
@@ -4231,24 +4269,38 @@ const INSPECTS=[
  {map:'sheol',x:14,y:3,run:async()=>{
    await note('Stone teeth grown down from a roof you cannot see: the underside of the mountains, the foundations men build their certainties upon. From beneath, they look less like roots than like the bars of a cage.');
  }},
- /* ----- Postgame Writ hub (Sprint 5). The Ledger-fire at the mouth of Sheol anchors the
-    Writs of Judgment loop: it explains the Ledger and gives state-aware guidance (no Writ →
-    begin one; The Last Hunger active → progress; sealed → acknowledge + point ahead). All
-    postgame-gated; during the campaign the prop is hidden and this reads as plain scenery. ----- */
+ /* ----- Postgame Writ hub (Sprint 5; multi-Writ-aware). The Ledger-fire at the mouth of Sheol
+    anchors the Writs of Judgment loop: it explains the Ledger and gives state-aware guidance for
+    *whichever* Writ is in hand (no Writ → begin/await; any Writ active → that Writ's progress +
+    next destination; all sealed → acknowledge). Derives everything from F.activeWrit / writState /
+    postgameWritSummary — no per-writ hard-coding beyond the NEXT guidance map. All postgame-gated;
+    during the campaign the prop is hidden and this reads as plain scenery. ----- */
  {map:'sheol',x:2,y:9,run:async()=>{
    if(!F.postgame){
      await note('Cold fire bedded among the dead, throwing grey attention instead of heat. Nothing is written here yet.');
      return;
    }
    ensurePostgameState();
-   const w=writState('lastHunger'), lh=WRITS.lastHunger;
-   const active=isWritMissionActive('lastHunger');
+   // The fire speaks about whichever Writ is in hand — generic across the whole Ledger board,
+   // not just The Last Hunger. activeId is the one expedition under way (or null).
+   const activeId=(F.activeWrit&&WRITS[F.activeWrit])?F.activeWrit:null;
+   const aw=activeId?WRITS[activeId]:null;
+   const sum=postgameWritSummary();
+   // Per-Writ descent guidance — what's next, keyed by writ id with a generic fallback.
+   const NEXT={
+     lastHunger:{
+       gather:'Descend east through the Lower Records and the Gnawed Hollow and gather the testimony that remains — a gnawed name, a bitten floor, and the word of the first of the dead.',
+       confront:'The testimony is whole. Descend past the cleared hollows to the Hunger Pit and confront The Last Hunger — it will not climb to you; you must go down to it.'},
+     ashesAzazel:{
+       gather:'Take the ash-fissure at the SE edge of this hub down to the Ash Hollow and name the three forbidden arts — the broken blade, the painted eye, and the bound watcher-remnant.',
+       confront:'The arts are all named. Go to the deepest end of the Ash Hollow, where the forge will not go cold, and judge the lesson that would not die.'}
+   };
    // Atmosphere first — the fire reads the room. It leans toward the descent when a Writ is in hand,
    // and burns close and patient when the Ledger is quiet.
-   if(active)
-     await note('The Ledger-fire stands taller than its fuel, and it leans — east, and downward, the way a hound leans at a closed door. The cold of it is the cold of attention. Somewhere below, the thing you are owed is being counted.');
-   else if(w.outcome)
-     await note('The Ledger-fire has settled to an even, listening glow, the way a lamp burns once the house is asleep. One Writ is sealed beneath it. The flame keeps the place, and waits to be needed again.');
+   if(activeId)
+     await note('The Ledger-fire stands taller than its fuel, and it leans — toward the descent, the way a hound leans at a closed door. The cold of it is the cold of attention. Somewhere below, the thing you are owed is being counted.');
+   else if(sum.judged.length)
+     await note('The Ledger-fire has settled to an even, listening glow, the way a lamp burns once the house is asleep. '+(sum.judged.length===1?'One Writ is sealed':sum.judged.length+' Writs are sealed')+' beneath it. The flame keeps the place, and waits to be needed again.');
    else
      await note('The Ledger-fire burns low and close, a grey coal bedded among the dead like a seal pressed into wax. It is not hungry and it is not cruel. It is only waiting to be read by.');
    await note('<b>The Ledger-fire of Metatron.</b> You set this cold flame at the mouth of the hollow places with your own hand, to mark where the <b>Writs of Judgment</b> are read — the one fixed point in the wandering dark. From here you take up a charge, descend into the hollows to gather what is true, and carry the matter back up to judgment. The dead drift close to the light of it, the way letters gather toward a name. Open the Scribe\'s Ledger (<b>C</b>) to begin.');
@@ -4257,22 +4309,30 @@ const INSPECTS=[
      await say('ABEL','I will keep the fire while you read, Scribe. The dead watch better when one of them is awake — and I am the first of them. Whatever you take up, I have already paid for the road.');
    else if(companionUnlocked('abel')){
      await note('The redeemed soul of <b>Abel</b> is not at your side; he keeps his own quiet vigil among the graves, the first-murdered learning to be still. Call him up through the Ledger when you would not descend alone.');
-   } else if(!active){
+   } else if(!activeId){
      await note('No witness stands with you at the fire. The hollows are kinder, a little, to a judge who descends accompanied — but the Writs do not require it, and the dark has never frightened you.');
    }
-   if(active){
-     const need=lh.requiredClues||3, have=w.clues.length;
-     const foes=EXPEDITION_ENEMIES.filter(e=>e.writ==='lastHunger');
+   if(activeId){
+     const w=writState(activeId), need=aw.requiredClues||3, have=w.clues.length;
+     const foes=EXPEDITION_ENEMIES.filter(e=>e.writ===activeId);
      const cleared=foes.filter(expEnemyDefeated).length;
-     const next = have<need
-       ? 'Descend east through the Lower Records and the Gnawed Hollow and gather the testimony that remains — a gnawed name, a bitten floor, and the word of the first of the dead.'
-       : (w.outcome?'It is already sealed.':'The testimony is whole. Descend past the cleared hollows to the Hunger Pit and confront The Last Hunger — it will not climb to you; you must go down to it.');
-     await note('<b>Writ in hand: The Last Hunger.</b> Testimony gathered <b>'+have+' / '+need+'</b>. Hollow-things put down <b>'+cleared+' / '+foes.length+'</b>. '+next);
-   } else if(w.outcome){
-     const verdict={bound:'You bound it beneath the graves, and the graves hold.',destroyed:'You unmade it with the Name placed in you, and there is no longer a place where it was.',redeemed:'You gave it one name and commanded it to sleep under witness, and it sleeps.',sealed:'You sealed it in the Ledger, known and imprisoned in the knowing.'}[w.outcome]||'Judgment was rendered.';
-     await note('<b>The Last Hunger is sealed.</b> '+verdict+' The first Writ is written, and a written thing cannot be unwritten. The Ledger is patient. When another hunger stirs beneath the world, this fire will lean toward it, and you will read it here.');
+     const guide=NEXT[activeId]||{gather:'Descend, and gather the testimony that remains.',confront:'The testimony is whole. Go to the deep place where the matter waits, and bring it to judgment.'};
+     const next = have<need ? guide.gather : (w.outcome?'It is already sealed.':guide.confront);
+     let line='<b>Writ in hand: '+aw.title+'.</b> Testimony gathered <b>'+have+' / '+need+'</b>.';
+     if(foes.length) line+=' Hollow-things put down <b>'+cleared+' / '+foes.length+'</b>.';
+     await note(line+' '+next);
+   } else if(sum.avail.length){
+     // No expedition under way, but Writs remain to be taken up (and possibly some already sealed).
+     const availTitles=sum.avail.map(id=>WRITS[id].title);
+     let line='No Writ is open in your hand, and the fire leans nowhere yet. Press <b>C</b> to read the Ledger of Judgment and take up a charge — ';
+     line += availTitles.length===1
+       ? '<i>'+availTitles[0]+'</i> still waits in the deep places to be taken up, named, and answered for.'
+       : availTitles.length+' accusations wait to be answered: <i>'+availTitles.join('</i>, <i>')+'</i>.';
+     if(sum.judged.length) line+=' Sealed already beneath this fire: '+sum.judged.map(id=>WRITS[id].title).join(', ')+'.';
+     await note(line);
    } else {
-     await note('No Writ is open in your hand, and the fire leans nowhere. Press <b>C</b> to read the Ledger of Judgment and take up a charge — <i>The Last Hunger</i> still waits in the deep places to be taken up, named, and answered for.');
+     // Every known Writ is sealed.
+     await note('<b>Every Writ before you is sealed</b> — '+sum.judged.map(id=>WRITS[id].title).join(', ')+'. Each is written, and a written thing cannot be unwritten. The Ledger is patient. When another hunger stirs beneath the world, this fire will lean toward it, and you will read it here.');
    }
  }},
  /* ----- The Last Hunger (postgame Writ). The expedition is now a descent across writ-only deeper
@@ -4303,11 +4363,11 @@ const INSPECTS=[
     falls back to plain scenery when the writ isn't active. The hollow is writ-only, so no campaign reach. */
  {map:'sheol',x:20,y:11,run:async()=>{
    if(ashesAzazelActive())
-     await note('The ash-fissure gapes at the edge of the hollow, breathing up heat that smells of hot iron and old smoke. Down it: the <b>Ash Hollow</b>, where Azazel taught the world to kill prettily. Descend.');
+     await note('The ash-fissure gapes at the edge of the hollow, breathing up heat that smells of hot iron and old smoke. Below it the <b>Ash Hollow</b> opens — Dudael, where Azazel taught the world to kill prettily. Step into the fissure to descend.');
    else if(F.postgame&&writState('ashesAzazel').outcome)
-     await note('The ash-fissure has cooled to a seam of grey glass. The lesson that burned below is sealed in your Ledger now. The forge is quiet.');
+     await note('The ash-fissure has cooled to a seam of grey glass. The lesson that burned below is sealed in your Ledger now. The forge under Dudael is grey and cold, and stays so.');
    else if(F.postgame)
-     await note('A seam in the floor at the SE edge of the hollow leaks a forge-glow up from somewhere far beneath Dudael. Something down there is still warm — still teaching. Take up its Writ in the Ledger (C) before you descend.');
+     await note('A seam in the floor at the SE edge of the hollow leaks a forge-glow up from somewhere far beneath Dudael — the mouth of the <b>Ash Hollow</b>. Something down there is still warm, still teaching. Take up the Writ <b>The Ashes of Azazel</b> in the Ledger (C); only then will the fissure open below you.');
    else
      await note('A crack in the stone, faintly warm, breathing up a smell of iron. Nothing is written here yet.');
  }},
